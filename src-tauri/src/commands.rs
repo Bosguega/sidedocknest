@@ -1,4 +1,5 @@
 use std::process::Command;
+use tauri::{PhysicalPosition, PhysicalSize, Position, Size};
 
 #[cfg(windows)]
 // use base64::Engine; // Removed unused
@@ -118,6 +119,49 @@ pub fn get_active_monitor_info(window: tauri::WebviewWindow) -> Result<MonitorIn
         work_width: work_area.size.width,
         work_height: work_area.size.height,
     })
+}
+
+#[tauri::command]
+pub fn update_window_bounds(
+    window: tauri::WebviewWindow,
+    is_expanded: bool,
+    side: String,
+) -> Result<(), String> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| format!("Failed to get current monitor: {:?}", e))?
+        .ok_or_else(|| "No monitor found".to_string())?;
+
+    let work_area = monitor.work_area();
+    let scale = window
+        .scale_factor()
+        .map_err(|e| format!("Failed to get scale factor: {:?}", e))?;
+
+    let logical_width = if is_expanded { 220.0 } else { 22.0 };
+    let physical_width = (logical_width * scale).round() as u32;
+
+    // Set size first (important for positioning calculation)
+    window
+        .set_size(Size::Physical(PhysicalSize {
+            width: physical_width,
+            height: work_area.size.height,
+        }))
+        .map_err(|e| format!("Failed to set window size: {:?}", e))?;
+
+    let x = if side == "left" {
+        work_area.position.x
+    } else {
+        work_area.position.x + work_area.size.width as i32 - physical_width as i32
+    };
+
+    window
+        .set_position(Position::Physical(PhysicalPosition {
+            x,
+            y: work_area.position.y,
+        }))
+        .map_err(|e| format!("Failed to set window position: {:?}", e))?;
+
+    Ok(())
 }
 
 /// Checks if a file path exists on the filesystem.
