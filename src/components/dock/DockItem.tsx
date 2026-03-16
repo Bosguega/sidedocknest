@@ -1,4 +1,5 @@
 import React from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { commands } from "../../bridge/commands";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -35,6 +36,11 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   const [showContext, setShowContext] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editName, setEditName] = React.useState(item.name);
+  // Reset icon error state whenever the item's icon changes (e.g. after refreshIcons)
+  const [iconLoadError, setIconLoadError] = React.useState(false);
+  React.useEffect(() => {
+    setIconLoadError(false);
+  }, [item.icon]);
   const contextRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -183,12 +189,13 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
         <span className="dock-item-icon">
           {item.isValid === false ? (
             <AlertCircle size={16} className="text-danger" />
-          ) : item.icon ? (
+          ) : item.icon && !iconLoadError ? (
             <img
-              src={`data:image/png;base64,${item.icon}`}
+              src={convertFileSrc(item.icon, "icon")}
               alt={item.name}
               width={16}
               height={16}
+              onError={() => setIconLoadError(true)}
             />
           ) : (
             getFallbackIcon()

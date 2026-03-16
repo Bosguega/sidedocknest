@@ -17,6 +17,17 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/**
+ * Returns true if the icon value is a valid new-format cache filename
+ * (e.g. "a3f1b2c4d5e6f708.png") as opposed to a legacy base64 blob.
+ *
+ * New format:  exactly 16 lowercase hex chars + ".png"
+ * Old format:  a long base64 string (contains "+", "/", upper-case, etc.)
+ */
+function isValidIconHash(icon: string | undefined): icon is string {
+  return typeof icon === "string" && /^[0-9a-f]{16}\.png$/.test(icon);
+}
+
 type DockState = {
   stacks: DockStack[];
   isLoaded: boolean;
@@ -46,6 +57,11 @@ type DockState = {
     newIndex: number,
   ) => void;
   checkPaths: () => Promise<void>;
+
+  // Icon cache
+  // Re-extracts icons for every item that does not yet have a valid hash icon.
+  // Safe to call fire-and-forget; saves automatically when done.
+  refreshIcons: () => Promise<void>;
 
   // Persistence
   loadFromStore: () => Promise<void>;
@@ -238,14 +254,63 @@ export const useDockStore = create<DockState>((set, get) => ({
     set({ stacks: updatedStacks });
   },
 
+  refreshIcons: async () => {
+    const { stacks } = get();
+    let changed = false;
+
+    const updatedStacks = await Promise.all(
+      stacks.map(async (stack) => {
+        const updatedItems = await Promise.all(
+          stack.items.map(async (item) => {
+            // Skip items that already have a valid cached icon hash
+            if (isValidIconHash(item.icon)) return item;
+
+            try {
+              const iconHash = (await commands.extractIcon(
+                item.path,
+              )) as string;
+              changed = true;
+              return { ...item, icon: iconHash };
+            } catch {
+              // Path may not exist or icon extraction failed — keep item as-is
+              return item;
+            }
+          }),
+        );
+        return { ...stack, items: updatedItems };
+      }),
+    );
+
+    if (changed) {
+      set({ stacks: updatedStacks });
+      debouncedSave(get().saveToStore);
+    }
+  },
+
   loadFromStore: async () => {
     try {
       const store = await getStore();
-      const stacks = await store.get<DockStack[]>("stacks");
-      if (stacks) {
+      const rawStacks = await store.get<DockStack[]>("stacks");
+
+      if (rawStacks) {
+        // ── Icon migration ──────────────────────────────────────────────────
+        // Old format stored full base64 PNG blobs in the icon field.
+        // New format stores only a short hash filename (e.g. "a3f1b2c4.png").
+        // Strip any value that doesn't match the new format so refreshIcons()
+        // can re-extract them into the persistent disk cache.
+        const stacks = rawStacks.map((s) => ({
+          ...s,
+          items: s.items.map((item) => ({
+            ...item,
+            icon: isValidIconHash(item.icon) ? item.icon : undefined,
+          })),
+        }));
+
         set({ stacks, isLoaded: true });
-        // Validate paths on load (fire-and-forget)
+
+        // Fire-and-forget background tasks
         get().checkPaths();
+        get().refreshIcons();
       } else {
         set({ isLoaded: true });
       }

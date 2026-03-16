@@ -12,6 +12,36 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // ── icon:// custom protocol ───────────────────────────────────────────
+        // Serves cached PNG icons from {app_cache_dir}/icons/{hash}.png.
+        // The frontend requests  icon://localhost/{hash}.png  (macOS/Linux) or
+        // http://icon.localhost/{hash}.png  (Windows — wry remaps automatically).
+        // convertFileSrc(filename, "icon") handles the platform URL difference.
+        .register_uri_scheme_protocol("icon", |ctx, request| {
+            // Strip the leading "/" from the URI path to get the plain filename.
+            let filename = request.uri().path().trim_start_matches('/').to_string();
+
+            let icon_bytes: Option<Vec<u8>> = ctx
+                .app_handle()
+                .path()
+                .app_cache_dir()
+                .ok()
+                .map(|d| d.join("icons").join(&filename))
+                .and_then(|p| std::fs::read(&p).ok());
+
+            match icon_bytes {
+                Some(bytes) => tauri::http::Response::builder()
+                    .header("Content-Type", "image/png")
+                    // Icons are content-addressed (path hash) — safe to cache forever.
+                    .header("Cache-Control", "public, max-age=31536000, immutable")
+                    .body(bytes)
+                    .unwrap(),
+                None => tauri::http::Response::builder()
+                    .status(tauri::http::StatusCode::NOT_FOUND)
+                    .body(Vec::<u8>::new())
+                    .unwrap(),
+            }
+        })
         .setup(|app| {
             let window = app
                 .get_webview_window("main")

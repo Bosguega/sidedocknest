@@ -1,5 +1,5 @@
 use std::process::Command;
-use tauri::{PhysicalPosition, PhysicalSize, Position, Size};
+use tauri::{Manager, PhysicalPosition, PhysicalSize, Position, Size};
 
 /// Opens a file, folder, or application using the system's default handler.
 #[tauri::command]
@@ -27,26 +27,79 @@ pub fn open_file_location(path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Extracts the icon from a file and returns it as a base64-encoded PNG string.
-/// windows-icons already returns a base64 string — no manual encoding needed.
+/// FNV-1a 64-bit hash — deterministic across runs (unlike DefaultHasher which
+/// uses a random seed). Used to derive stable cache filenames from file paths.
+#[cfg(windows)]
+fn fnv1a_hash(data: &str) -> u64 {
+    const FNV_OFFSET: u64 = 14695981039346656037;
+    const FNV_PRIME: u64 = 1099511628211;
+    let mut hash = FNV_OFFSET;
+    for byte in data.bytes() {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
+
+/// Extracts the icon for a file and caches it as a PNG on disk.
+///
+/// Returns the cache filename (e.g. `"a3f1b2c4d5e6f708.png"`) — NOT base64.
+/// The frontend resolves this to a URL via `convertFileSrc(filename, "icon")`.
+///
+/// Cache location: `{app_cache_dir}/icons/{hash}.png`
+/// On a cache hit the file is served immediately without calling windows-icons.
 #[cfg(windows)]
 #[tauri::command]
-pub fn extract_icon(path: String) -> Result<String, String> {
-    let path_obj = std::path::Path::new(&path);
-    if !path_obj.exists() {
+pub fn extract_icon(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    // Normalise to lowercase so that paths differing only in case share one
+    // cache entry (Windows paths are case-insensitive).
+    let hash = fnv1a_hash(&path.to_lowercase());
+    let filename = format!("{:016x}.png", hash);
+
+    let icons_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to resolve cache dir: {:?}", e))?
+        .join("icons");
+
+    let icon_path = icons_dir.join(&filename);
+
+    // ── Cache hit ────────────────────────────────────────────────────────────
+    if icon_path.exists() {
+        return Ok(filename);
+    }
+
+    // ── Validate source path ─────────────────────────────────────────────────
+    if !std::path::Path::new(&path).exists() {
         return Err(format!("Path does not exist: {}", path));
     }
 
-    match windows_icons::get_icon_base64_by_path(&path) {
-        Ok(base64_icon) => Ok(base64_icon),
-        Err(e) => Err(format!("Failed to extract icon from '{}': {:?}", path, e)),
-    }
+    // ── Create cache directory if needed ─────────────────────────────────────
+    std::fs::create_dir_all(&icons_dir)
+        .map_err(|e| format!("Failed to create icons cache dir: {:?}", e))?;
+
+    // ── Extract icon (windows-icons returns base64-encoded PNG) ───────────────
+    let b64 = windows_icons::get_icon_base64_by_path(&path)
+        .map_err(|e| format!("Failed to extract icon for '{}': {:?}", path, e))?;
+
+    // ── Decode base64 → raw PNG bytes ─────────────────────────────────────────
+    let png_bytes = STANDARD
+        .decode(&b64)
+        .map_err(|e| format!("Failed to decode icon data for '{}': {:?}", path, e))?;
+
+    // ── Write PNG to cache ────────────────────────────────────────────────────
+    std::fs::write(&icon_path, &png_bytes)
+        .map_err(|e| format!("Failed to write icon cache for '{}': {:?}", path, e))?;
+
+    Ok(filename)
 }
 
-/// Fallback for non-Windows platforms.
+/// Fallback stub for non-Windows platforms.
 #[cfg(not(windows))]
 #[tauri::command]
-pub fn extract_icon(_path: String) -> Result<String, String> {
+pub fn extract_icon(_app: tauri::AppHandle, _path: String) -> Result<String, String> {
     Err("Icon extraction is only supported on Windows".to_string())
 }
 
@@ -57,14 +110,12 @@ pub fn resolve_shortcut(path: String) -> Result<String, String> {
     let shortcut = lnk::ShellLink::open(&path)
         .map_err(|e| format!("Failed to read shortcut '{}': {:?}", path, e))?;
 
-    // Try to get the target path from link_info
     if let Some(link_info) = shortcut.link_info() {
         if let Some(local_path) = link_info.local_base_path() {
             return Ok(local_path.to_string());
         }
     }
 
-    // Fallback: try relative_path
     if let Some(rel_path) = shortcut.relative_path() {
         return Ok(rel_path.to_string());
     }
@@ -72,7 +123,7 @@ pub fn resolve_shortcut(path: String) -> Result<String, String> {
     Err(format!("Could not resolve shortcut target for '{}'", path))
 }
 
-/// Fallback for non-Windows platforms.
+/// Fallback stub for non-Windows platforms.
 #[cfg(not(windows))]
 #[tauri::command]
 pub fn resolve_shortcut(_path: String) -> Result<String, String> {
@@ -100,7 +151,6 @@ pub fn update_window_bounds(
     let logical_width = if is_expanded { 220.0 } else { 22.0 };
     let physical_width = (logical_width * scale).round() as u32;
 
-    // Set size first (important for positioning calculation)
     window
         .set_size(Size::Physical(PhysicalSize {
             width: physical_width,
@@ -145,10 +195,8 @@ pub fn list_start_menu_items() -> Vec<StartMenuItem> {
     let mut items = Vec::new();
     let mut paths = Vec::new();
 
-    // System-wide start menu
     paths.push("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs".to_string());
 
-    // User-specific start menu
     if let Ok(appdata) = env::var("APPDATA") {
         paths.push(format!(
             "{}\\Microsoft\\Windows\\Start Menu\\Programs",
@@ -163,9 +211,8 @@ pub fn list_start_menu_items() -> Vec<StartMenuItem> {
             .filter(|e| {
                 let p = e.path();
                 p.is_file()
-                    && (p
-                        .extension()
-                        .map_or(false, |ext| ext == "lnk" || ext == "exe"))
+                    && p.extension()
+                        .map_or(false, |ext| ext == "lnk" || ext == "exe")
             })
         {
             let path = entry.path();
@@ -181,7 +228,6 @@ pub fn list_start_menu_items() -> Vec<StartMenuItem> {
         }
     }
 
-    // Sort by name for better UX
     items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     items
 }
