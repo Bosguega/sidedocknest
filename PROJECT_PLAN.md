@@ -550,7 +550,7 @@ O SideDockNest deve ter um ícone na **bandeja do sistema** (system tray) para:
 ```
 SideDockNest
 ─────────────────
-☐ Auto-start with Windows
+[x] Auto-start with Windows
 ─────────────────
 Side: Left | Right
 ─────────────────
@@ -1126,42 +1126,48 @@ Toast: "Added [name] to [stack]"
 
 # Roadmap
 
-## MVP
+## MVP [DONE]
 
-- Barra lateral funcional (colapsado/expandido)
-- Stacks expansíveis (criar, expandir, recolher)
-- Adicionar itens manualmente via input de path
-- Executar aplicativos (click → open)
-- Persistência de configuração e dados
-- Tema dark
-- System tray com opção de sair
-- Janela transparent, always-on-top, borderless
-
----
-
-## v1
-
-- Drag & Drop do Explorer
-- Menu contextual (itens + stacks)
-- Extração automática de ícones
-- Configuração de lado da tela (left/right)
-- Renomear stacks e itens
-- Reordenar stacks e itens
-- Light theme
-- Validação de paths (items com path inválido)
-- Toast notifications
+- [x] Barra lateral funcional (colapsado/expandido)
+- [x] Stacks expansíveis (criar, expandir, recolher)
+- [x] Executar aplicativos (click → open)
+- [x] Persistência de configuração e dados
+- [x] Tema dark
+- [x] System tray com opção de sair
+- [x] Janela transparent, always-on-top, borderless
 
 ---
 
-## v2
+## v1 [DONE]
 
-- Hotkeys globais (toggle dock, expandir stack)
-- Busca de aplicativos (search field no topo do dock expandido)
-- Importar apps do Start Menu
-- Auto-start com Windows (via registro)
-- Reordenação drag interno de stacks/itens
-- Animações refinadas
-- Suporte a múltiplos monitores
+- [x] Drag & Drop do Explorer
+- [x] Menu contextual (itens + stacks)
+- [x] Extração automática de ícones
+- [x] Configuração de lado da tela (left/right)
+- [x] Renomear stacks e itens
+- [x] Reordenar stacks e itens (via botões Up/Down)
+- [x] Light theme
+- [x] Validação de paths (items com path inválido)
+- [x] Toast notifications
+
+---
+
+## v1.1 [DONE]
+
+- [x] Sincronização da System Tray com o estado da UI
+- [x] Validação automática de caminhos a cada 5 min
+- [x] Correção de bugs de duplicação de eventos (Drag & Drop)
+- [x] Auto-start com Windows (via Plugin Autostart)
+
+---
+
+## v2 (Concluído)
+
+- [x] Hotkeys globais (Alt+Space para toggle dock + focus search)
+- [x] Busca de aplicativos (campo de busca no topo do dock)
+- [x] Importar apps do Start Menu (botão de faíscas + modal de seleção)
+- [x] Reordenação drag interno (drag & drop real entre stacks e itens via @dnd-kit)
+- [x] Suporte a múltiplos monitores (detecção de monitor atual e posicionamento relativo)
 
 ---
 
@@ -1186,19 +1192,20 @@ Framework: `vitest` + `@testing-library/react`
 
 ## Testes Manuais (checklist)
 
-- [ ] Drag & Drop de .exe do Explorer
-- [ ] Drag & Drop de .lnk do Explorer
-- [ ] Drag & Drop de pasta do Explorer
-- [ ] Expandir/recolher dock via hover
-- [ ] Expandir/recolher stack via click
-- [ ] Executar app via click
-- [ ] Menu contextual → Open File Location
-- [ ] Menu contextual → Remove from Dock
-- [ ] Persistência: fechar e reabrir app mantém dados
-- [ ] System Tray funcional
-- [ ] Posicionar dock no lado direito
-- [ ] Trocar tema dark ↔ light
-- [ ] App não aparece na taskbar
+- [x] Drag & Drop de .exe do Explorer
+- [x] Drag & Drop de .lnk do Explorer
+- [x] Drag & Drop de pasta do Explorer
+- [x] Expandir/recolher dock via hover
+- [x] Expandir/recolher stack via click
+- [x] Executar app via click
+- [x] Menu contextual → Open File Location
+- [x] Menu contextual → Remove from Dock
+- [x] Persistência: fechar e reabrir app mantém dados
+- [x] System Tray funcional e sincronizado
+- [x] Posicionar dock no lado direito
+- [x] Trocar tema dark ↔ light
+- [x] App não aparece na taskbar
+- [x] Auto-start alternado com sucesso
 
 ---
 

@@ -3,6 +3,13 @@ import { getCurrentWindow, PhysicalPosition, PhysicalSize } from "@tauri-apps/ap
 import { invoke } from "@tauri-apps/api/core";
 import { useConfigStore } from "../stores/configStore";
 
+type MonitorInfo = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export function useWindowPosition(isExpanded: boolean) {
   const { side } = useConfigStore();
   const isResizing = useRef(false);
@@ -15,8 +22,8 @@ export function useWindowPosition(isExpanded: boolean) {
       try {
         const window = getCurrentWindow();
         
-        // Get physical monitor size from Rust
-        const [physScreenWidth, physScreenHeight] = await invoke<[number, number]>("get_screen_size");
+        // Get active monitor info (where the window is currently)
+        const monitor = await invoke<MonitorInfo>("get_active_monitor_info");
         
         // Logical widths
         const expandedWidth = 220;
@@ -28,29 +35,35 @@ export function useWindowPosition(isExpanded: boolean) {
         const targetPhysWidth = Math.round(targetLogicalWidth * scale);
         
         // Set physical size (height matches monitor exactly)
-        await window.setSize(new PhysicalSize(targetPhysWidth, physScreenHeight));
+        await window.setSize(new PhysicalSize(targetPhysWidth, monitor.height));
         
-        // Set physical position
-        const xPos = side === "left" ? 0 : physScreenWidth - targetPhysWidth;
-        await window.setPosition(new PhysicalPosition(xPos, 0));
+        // Set physical position relative to monitor offset
+        const xPos = side === "left" 
+          ? monitor.x 
+          : monitor.x + monitor.width - targetPhysWidth;
+        
+        await window.setPosition(new PhysicalPosition(xPos, monitor.y));
         
       } catch (e) {
         console.error("Failed to update window position:", e);
       } finally {
-        // Debounce flag reset
         setTimeout(() => { isResizing.current = false; }, 150);
       }
     };
 
     updatePosition();
     
-    // Safety re-sync
     const unlistenPromise = getCurrentWindow().onResized(() => {
+        if (!isResizing.current) updatePosition();
+    });
+
+    const unlistenMovedPromise = getCurrentWindow().onMoved(() => {
         if (!isResizing.current) updatePosition();
     });
 
     return () => {
       unlistenPromise.then(unlisten => unlisten());
+      unlistenMovedPromise.then(unlisten => unlisten());
     };
   }, [side, isExpanded]);
 }

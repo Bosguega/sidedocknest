@@ -32,6 +32,12 @@ type DockState = {
   ) => void;
   removeItem: (stackId: string, itemId: string) => void;
   renameItem: (stackId: string, itemId: string, newName: string) => void;
+  moveItem: (
+    sourceStackId: string,
+    targetStackId: string,
+    itemId: string,
+    newIndex: number
+  ) => void;
   checkPaths: () => Promise<void>;
 
   // Persistence
@@ -150,6 +156,49 @@ export const useDockStore = create<DockState>((set, get) => ({
           : s
       ),
     }));
+    debouncedSave(get().saveToStore);
+  },
+
+  moveItem: (sourceStackId, targetStackId, itemId, newIndex) => {
+    set((state) => {
+      const sourceStack = state.stacks.find((s) => s.id === sourceStackId);
+      if (!sourceStack) return state;
+
+      if (sourceStackId === targetStackId) {
+        // Intra-stack reordering
+        const items = [...sourceStack.items];
+        const oldIndex = items.findIndex((i) => i.id === itemId);
+        if (oldIndex === -1) return state;
+        const [moved] = items.splice(oldIndex, 1);
+        items.splice(newIndex, 0, moved);
+
+        return {
+          stacks: state.stacks.map((s) =>
+            s.id === sourceStackId ? { ...s, items } : s
+          ),
+        };
+      } else {
+        // Inter-stack movement
+        const targetStack = state.stacks.find((s) => s.id === targetStackId);
+        if (!targetStack) return state;
+
+        const sourceItems = [...sourceStack.items];
+        const itemIndex = sourceItems.findIndex((i) => i.id === itemId);
+        if (itemIndex === -1) return state;
+        const [moved] = sourceItems.splice(itemIndex, 1);
+
+        const targetItems = [...targetStack.items];
+        targetItems.splice(newIndex, 0, moved);
+
+        return {
+          stacks: state.stacks.map((s) => {
+            if (s.id === sourceStackId) return { ...s, items: sourceItems };
+            if (s.id === targetStackId) return { ...s, items: targetItems };
+            return s;
+          }),
+        };
+      }
+    });
     debouncedSave(get().saveToStore);
   },
 

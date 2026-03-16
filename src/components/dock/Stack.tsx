@@ -1,5 +1,7 @@
 import React from "react";
 import { ChevronDown, ChevronRight, Trash2, Edit2, ArrowUp, ArrowDown } from "lucide-react";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { DockItem } from "./DockItem";
 import type { DockStack as DockStackType } from "../../types/dock";
 import { useDockStore } from "../../stores/dockStore";
@@ -17,6 +19,30 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   const [editName, setEditName] = React.useState(stack.name);
   const contextRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Setup sortable for the stack itself
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: stack.id,
+    data: {
+      type: "stack",
+      stack,
+    },
+    disabled: isEditing,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 1,
+  };
 
   const handleToggle = () => {
     if (!isEditing) toggleStack(stack.id);
@@ -99,11 +125,18 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   const index = stacks.findIndex(s => s.id === stack.id);
 
   return (
-    <div className="stack" onContextMenu={handleContextMenu}>
+    <div 
+      className="stack" 
+      onContextMenu={handleContextMenu}
+      ref={setNodeRef}
+      style={style}
+    >
       <div
         className="stack-header"
         onClick={handleToggle}
         onDoubleClick={handleRenameTrigger}
+        {...attributes}
+        {...listeners}
       >
         <span className="stack-chevron">
           {stack.isExpanded ? (
@@ -135,14 +168,19 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           {stack.items.length === 0 ? (
             <div className="stack-empty">Drop files here</div>
           ) : (
-            stack.items.map((item) => (
-              <DockItem
-                key={item.id}
-                item={item}
-                stackId={stack.id}
-                onRemove={removeItem}
-              />
-            ))
+            <SortableContext 
+              items={stack.items.map(i => i.id)} 
+              strategy={verticalListSortingStrategy}
+            >
+              {stack.items.map((item) => (
+                <DockItem
+                  key={item.id}
+                  item={item}
+                  stackId={stack.id}
+                  onRemove={removeItem}
+                />
+              ))}
+            </SortableContext>
           )}
         </div>
       )}

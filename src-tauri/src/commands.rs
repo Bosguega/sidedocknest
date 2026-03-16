@@ -84,20 +84,83 @@ pub fn resolve_shortcut(_path: String) -> Result<String, String> {
     Err("Shortcut resolution is only supported on Windows".to_string())
 }
 
-/// Returns the primary monitor's screen dimensions.
+#[derive(serde::Serialize)]
+pub struct MonitorInfo {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Returns the information of the monitor the window is currently on.
 #[tauri::command]
-pub fn get_screen_size(window: tauri::WebviewWindow) -> Result<(u32, u32), String> {
+pub fn get_active_monitor_info(window: tauri::WebviewWindow) -> Result<MonitorInfo, String> {
     let monitor = window
         .current_monitor()
         .map_err(|e| format!("Failed to get current monitor: {:?}", e))?
         .ok_or_else(|| "No monitor found".to_string())?;
 
     let size = monitor.size();
-    Ok((size.width, size.height))
+    let pos = monitor.position();
+    
+    Ok(MonitorInfo {
+        x: pos.x,
+        y: pos.y,
+        width: size.width,
+        height: size.height,
+    })
 }
 
 /// Checks if a file path exists on the filesystem.
 #[tauri::command]
 pub fn path_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
+}
+
+#[derive(serde::Serialize)]
+pub struct StartMenuItem {
+    pub name: String,
+    pub path: String,
+}
+
+#[tauri::command]
+pub fn list_start_menu_items() -> Vec<StartMenuItem> {
+    use std::env;
+    use walkdir::WalkDir;
+
+    let mut items = Vec::new();
+    let mut paths = Vec::new();
+
+    // System-wide start menu
+    paths.push("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs".to_string());
+    
+    // User-specific start menu
+    if let Ok(appdata) = env::var("APPDATA") {
+        paths.push(format!("{}\\Microsoft\\Windows\\Start Menu\\Programs", appdata));
+    }
+
+    for base_path in paths {
+        for entry in WalkDir::new(base_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let p = e.path();
+                p.is_file() && (p.extension().map_or(false, |ext| ext == "lnk" || ext == "exe"))
+            })
+        {
+            let path = entry.path();
+            let name = path.file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Unknown".to_string());
+            
+            items.push(StartMenuItem {
+                name,
+                path: path.to_string_lossy().to_string(),
+            });
+        }
+    }
+
+    // Sort by name for better UX
+    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items
 }

@@ -1,5 +1,7 @@
 import React from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   AppWindow,
   Folder,
@@ -30,6 +32,30 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   const [editName, setEditName] = React.useState(item.name);
   const contextRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+    data: {
+      type: "item",
+      item,
+      stackId,
+    },
+    disabled: isEditing,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 20 : 1,
+  };
 
   const handleClick = async () => {
     if (isEditing) return;
@@ -134,13 +160,19 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   };
 
   return (
-    <div className={`dock-item-wrapper ${item.isValid === false ? "dock-item-wrapper--invalid" : ""}`}>
+    <div 
+      ref={setNodeRef}
+      style={style}
+      className={`dock-item-wrapper ${item.isValid === false ? "dock-item-wrapper--invalid" : ""}`}
+    >
       <div
         className="dock-item"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onDoubleClick={handleRenameTrigger}
         title={item.isValid === false ? `PATH NOT FOUND: ${item.path}` : item.path}
+        {...attributes}
+        {...listeners}
       >
         <span className="dock-item-icon">
           {item.isValid === false ? (
