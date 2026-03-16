@@ -32,9 +32,7 @@ export function useDragDrop() {
 
           if (currentStacks.length === 0) {
             addStack("General");
-            await new Promise((r) => setTimeout(r, 100));
-            const updatedStacks = useDockStore.getState().stacks;
-            targetStackId = updatedStacks[updatedStacks.length - 1]?.id;
+            targetStackId = useDockStore.getState().stacks.at(-1)?.id;
           } else {
             targetStackId = currentStacks[0].id;
           }
@@ -44,21 +42,28 @@ export function useDragDrop() {
           for (const rawPath of paths) {
             try {
               const processed = await processFile(rawPath);
-              addItem(targetStackId, processed);
-              addToast(`Added ${processed.name}`, "success");
+              const added = addItem(targetStackId, processed);
+              if (added) {
+                addToast(`Added ${processed.name}`, "success");
+              } else {
+                addToast(
+                  `"${processed.name}" is already in this stack`,
+                  "warning",
+                );
+              }
             } catch (e) {
               console.error("Failed to process dropped file:", e);
               addToast("Failed to add item", "error");
             }
           }
-        }
+        },
       );
     };
 
     setup();
 
     return () => {
-      unlistenPromise?.then(fn => fn());
+      unlistenPromise?.then((fn) => fn());
       isSettingUp.current = false;
     };
   }, [addStack, addItem, addToast]);

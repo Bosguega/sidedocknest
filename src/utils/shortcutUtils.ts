@@ -1,17 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DockItemType } from "../types/dock";
 
+/** Normaliza separadores de caminho para backslash (Windows). */
+function normalizePath(path: string): string {
+  return path.replace(/\//g, "\\");
+}
+
 export function getItemType(path: string): DockItemType {
-  const lower = path.toLowerCase();
+  const normalized = normalizePath(path);
+  const lower = normalized.toLowerCase();
   if (lower.endsWith(".exe") || lower.endsWith(".lnk")) return "app";
-  const parts = path.split("\\");
+  const parts = normalized.split("\\");
   const last = parts[parts.length - 1];
   if (!last.includes(".")) return "folder";
   return "file";
 }
 
 export function getItemName(path: string): string {
-  const parts = path.replace(/\//g, "\\").split("\\");
+  const parts = normalizePath(path).split("\\");
   const filename = parts[parts.length - 1];
   const dotIndex = filename.lastIndexOf(".");
   if (dotIndex > 0) {

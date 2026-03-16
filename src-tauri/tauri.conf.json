@@ -18,7 +18,7 @@
         "height": 900,
         "x": 0,
         "y": 0,
-        "resizable": true,
+        "resizable": false,
         "decorations": false,
         "shadow": false,
         "transparent": true,

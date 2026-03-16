@@ -1,6 +1,18 @@
 import React from "react";
-import { ChevronDown, ChevronRight, Trash2, Edit2, ArrowUp, ArrowDown } from "lucide-react";
-import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  Edit2,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
+import { Modal } from "../common/Modal";
+import {
+  useSortable,
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DockItem } from "./DockItem";
 import type { DockStack as DockStackType } from "../../types/dock";
@@ -12,9 +24,17 @@ type Props = {
 };
 
 export const Stack: React.FC<Props> = ({ stack }) => {
-  const { stacks, toggleStack, removeItem, removeStack, renameStack, reorderStacks } = useDockStore();
+  const {
+    stacks,
+    toggleStack,
+    removeItem,
+    removeStack,
+    renameStack,
+    reorderStacks,
+  } = useDockStore();
   const addToast = useToastStore((s) => s.addToast);
   const [showContext, setShowContext] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editName, setEditName] = React.useState(stack.name);
   const contextRef = React.useRef<HTMLDivElement>(null);
@@ -80,19 +100,18 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   };
 
   const handleDeleteStack = () => {
-    if (
-      window.confirm(
-        `Delete stack "${stack.name}" and all its ${stack.items.length} items?`
-      )
-    ) {
-      removeStack(stack.id);
-      addToast(`Stack "${stack.name}" deleted`, "warning");
-    }
     setShowContext(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    removeStack(stack.id);
+    addToast(`Stack "${stack.name}" deleted`, "warning");
+    setShowDeleteConfirm(false);
   };
 
   const handleMoveUp = () => {
-    const index = stacks.findIndex(s => s.id === stack.id);
+    const index = stacks.findIndex((s) => s.id === stack.id);
     if (index > 0) {
       reorderStacks(index, index - 1);
     }
@@ -100,7 +119,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   };
 
   const handleMoveDown = () => {
-    const index = stacks.findIndex(s => s.id === stack.id);
+    const index = stacks.findIndex((s) => s.id === stack.id);
     if (index < stacks.length - 1) {
       reorderStacks(index, index + 1);
     }
@@ -122,11 +141,11 @@ export const Stack: React.FC<Props> = ({ stack }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, [showContext]);
 
-  const index = stacks.findIndex(s => s.id === stack.id);
+  const index = stacks.findIndex((s) => s.id === stack.id);
 
   return (
-    <div 
-      className="stack" 
+    <div
+      className="stack"
       onContextMenu={handleContextMenu}
       ref={setNodeRef}
       style={style}
@@ -145,7 +164,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
             <ChevronRight size={14} />
           )}
         </span>
-        
+
         {isEditing ? (
           <input
             ref={inputRef}
@@ -159,7 +178,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
         ) : (
           <span className="stack-name">{stack.name}</span>
         )}
-        
+
         <span className="stack-count">{stack.items.length}</span>
       </div>
 
@@ -168,8 +187,8 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           {stack.items.length === 0 ? (
             <div className="stack-empty">Drop files here</div>
           ) : (
-            <SortableContext 
-              items={stack.items.map(i => i.id)} 
+            <SortableContext
+              items={stack.items.map((i) => i.id)}
               strategy={verticalListSortingStrategy}
             >
               {stack.items.map((item) => (
@@ -191,19 +210,19 @@ export const Stack: React.FC<Props> = ({ stack }) => {
             <Edit2 size={13} />
             <span>Rename Stack</span>
           </button>
-          
+
           <div className="context-menu-divider" />
-          
-          <button 
-            className="context-menu-item" 
+
+          <button
+            className="context-menu-item"
             onClick={handleMoveUp}
             disabled={index === 0}
           >
             <ArrowUp size={13} />
             <span>Move Up</span>
           </button>
-          <button 
-            className="context-menu-item" 
+          <button
+            className="context-menu-item"
             onClick={handleMoveDown}
             disabled={index === stacks.length - 1}
           >
@@ -212,7 +231,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           </button>
 
           <div className="context-menu-divider" />
-          
+
           <button
             className="context-menu-item context-menu-item--danger"
             onClick={handleDeleteStack}
@@ -222,6 +241,32 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           </button>
         </div>
       )}
+      <Modal
+        title="Delete Stack"
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+      >
+        <div className="confirm-dialog">
+          <p className="confirm-dialog-message">
+            Delete stack <strong>"{stack.name}"</strong> and all its{" "}
+            {stack.items.length} item{stack.items.length !== 1 ? "s" : ""}?
+          </p>
+          <div className="confirm-dialog-actions">
+            <button
+              className="confirm-btn confirm-btn--cancel"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="confirm-btn confirm-btn--danger"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -3974,7 +3974,6 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-log",
  "tauri-plugin-store",
- "uuid",
  "walkdir",
  "windows-icons",
 ]

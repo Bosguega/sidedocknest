@@ -10,7 +10,6 @@ export const ToastContainer: React.FC = () => {
       {toasts.map((toast) => (
         <ToastItem
           key={toast.id}
-          id={toast.id}
           message={toast.message}
           type={toast.type}
           onClose={() => removeToast(toast.id)}
@@ -21,7 +20,6 @@ export const ToastContainer: React.FC = () => {
 };
 
 interface ItemProps {
-  id: string;
   message: string;
   type: ToastType;
   onClose: () => void;
@@ -30,10 +28,14 @@ interface ItemProps {
 const ToastItem: React.FC<ItemProps> = ({ message, type, onClose }) => {
   const getIcon = () => {
     switch (type) {
-      case "success": return <CheckCircle size={16} />;
-      case "error": return <XCircle size={16} />;
-      case "warning": return <AlertTriangle size={16} />;
-      default: return <Info size={16} />;
+      case "success":
+        return <CheckCircle size={16} />;
+      case "error":
+        return <XCircle size={16} />;
+      case "warning":
+        return <AlertTriangle size={16} />;
+      default:
+        return <Info size={16} />;
     }
   };
 

@@ -5,6 +5,14 @@ import type { DockStack, DockItem } from "../types/dock";
 
 const STORE_FILE = "dock-data.json";
 
+// Cache the store instance to avoid reloading on every operation
+type TauriStore = Awaited<ReturnType<typeof load>>;
+let _dockStore: TauriStore | null = null;
+const getStore = async (): Promise<TauriStore> => {
+  if (!_dockStore) _dockStore = await load(STORE_FILE);
+  return _dockStore;
+};
+
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
@@ -19,24 +27,22 @@ type DockState = {
   renameStack: (stackId: string, newName: string) => void;
   toggleStack: (stackId: string) => void;
   reorderStacks: (fromIndex: number, toIndex: number) => void;
-  reorderItems: (
-    stackId: string,
-    fromIndex: number,
-    toIndex: number
-  ) => void;
+  reorderItems: (stackId: string, fromIndex: number, toIndex: number) => void;
 
   // Item CRUD
+  // Returns true if the item was added, false if a duplicate path already
+  // exists in the target stack.
   addItem: (
     stackId: string,
-    item: Omit<DockItem, "id" | "createdAt">
-  ) => void;
+    item: Omit<DockItem, "id" | "createdAt">,
+  ) => boolean;
   removeItem: (stackId: string, itemId: string) => void;
   renameItem: (stackId: string, itemId: string, newName: string) => void;
   moveItem: (
     sourceStackId: string,
     targetStackId: string,
     itemId: string,
-    newIndex: number
+    newIndex: number,
   ) => void;
   checkPaths: () => Promise<void>;
 
@@ -80,7 +86,7 @@ export const useDockStore = create<DockState>((set, get) => ({
   renameStack: (stackId: string, newName: string) => {
     set((state) => ({
       stacks: state.stacks.map((s) =>
-        s.id === stackId ? { ...s, name: newName } : s
+        s.id === stackId ? { ...s, name: newName } : s,
       ),
     }));
     debouncedSave(get().saveToStore);
@@ -89,7 +95,7 @@ export const useDockStore = create<DockState>((set, get) => ({
   toggleStack: (stackId: string) => {
     set((state) => ({
       stacks: state.stacks.map((s) =>
-        s.id === stackId ? { ...s, isExpanded: !s.isExpanded } : s
+        s.id === stackId ? { ...s, isExpanded: !s.isExpanded } : s,
       ),
     }));
     debouncedSave(get().saveToStore);
@@ -119,6 +125,13 @@ export const useDockStore = create<DockState>((set, get) => ({
   },
 
   addItem: (stackId, item) => {
+    const targetStack = get().stacks.find((s) => s.id === stackId);
+    if (!targetStack) return false;
+
+    // Prevent duplicate paths within the same stack
+    const isDuplicate = targetStack.items.some((i) => i.path === item.path);
+    if (isDuplicate) return false;
+
     const newItem: DockItem = {
       ...item,
       id: generateId(),
@@ -126,10 +139,11 @@ export const useDockStore = create<DockState>((set, get) => ({
     };
     set((state) => ({
       stacks: state.stacks.map((s) =>
-        s.id === stackId ? { ...s, items: [...s.items, newItem] } : s
+        s.id === stackId ? { ...s, items: [...s.items, newItem] } : s,
       ),
     }));
     debouncedSave(get().saveToStore);
+    return true;
   },
 
   removeItem: (stackId: string, itemId: string) => {
@@ -137,7 +151,7 @@ export const useDockStore = create<DockState>((set, get) => ({
       stacks: state.stacks.map((s) =>
         s.id === stackId
           ? { ...s, items: s.items.filter((i) => i.id !== itemId) }
-          : s
+          : s,
       ),
     }));
     debouncedSave(get().saveToStore);
@@ -150,10 +164,10 @@ export const useDockStore = create<DockState>((set, get) => ({
           ? {
               ...s,
               items: s.items.map((i) =>
-                i.id === itemId ? { ...i, name: newName } : i
+                i.id === itemId ? { ...i, name: newName } : i,
               ),
             }
-          : s
+          : s,
       ),
     }));
     debouncedSave(get().saveToStore);
@@ -174,7 +188,7 @@ export const useDockStore = create<DockState>((set, get) => ({
 
         return {
           stacks: state.stacks.map((s) =>
-            s.id === sourceStackId ? { ...s, items } : s
+            s.id === sourceStackId ? { ...s, items } : s,
           ),
         };
       } else {
@@ -209,26 +223,28 @@ export const useDockStore = create<DockState>((set, get) => ({
         const updatedItems = await Promise.all(
           stack.items.map(async (item) => {
             try {
-              const exists = await invoke<boolean>("path_exists", { path: item.path });
+              const exists = await invoke<boolean>("path_exists", {
+                path: item.path,
+              });
               return { ...item, isValid: exists };
             } catch {
               return { ...item, isValid: false };
             }
-          })
+          }),
         );
         return { ...stack, items: updatedItems };
-      })
+      }),
     );
     set({ stacks: updatedStacks });
   },
 
   loadFromStore: async () => {
     try {
-      const store = await load(STORE_FILE);
+      const store = await getStore();
       const stacks = await store.get<DockStack[]>("stacks");
       if (stacks) {
         set({ stacks, isLoaded: true });
-        // Validate paths on load
+        // Validate paths on load (fire-and-forget)
         get().checkPaths();
       } else {
         set({ isLoaded: true });
@@ -241,7 +257,7 @@ export const useDockStore = create<DockState>((set, get) => ({
 
   saveToStore: async () => {
     try {
-      const store = await load(STORE_FILE);
+      const store = await getStore();
       await store.set("stacks", get().stacks);
       await store.save();
     } catch (e) {

@@ -1,5 +1,14 @@
 import React from "react";
-import { Plus, Settings, Sun, AlignRight, X, Zap, Search as SearchIcon, Sparkles } from "lucide-react";
+import {
+  Plus,
+  Settings,
+  Sun,
+  AlignRight,
+  X,
+  Zap,
+  Search as SearchIcon,
+  Sparkles,
+} from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DndContext,
@@ -34,15 +43,24 @@ type StartMenuItem = {
 };
 
 export const Sidebar: React.FC = () => {
-  const { stacks, addStack, addItem, isLoaded, checkPaths, reorderStacks, moveItem } = useDockStore();
-  const { side, theme, autoStart, setSide, setTheme, toggleAutoStart } = useConfigStore();
-  const addToast = useToastStore(s => s.addToast);
-  
+  const {
+    stacks,
+    addStack,
+    addItem,
+    isLoaded,
+    checkPaths,
+    reorderStacks,
+    moveItem,
+  } = useDockStore();
+  const { side, theme, autoStart, setSide, setTheme, toggleAutoStart } =
+    useConfigStore();
+  const addToast = useToastStore((s) => s.addToast);
+
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [isAdding, setIsAdding] = React.useState(false);
   const [showImport, setShowImport] = React.useState(false);
-  
+
   const [newStackName, setNewStackName] = React.useState("");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [importSearch, setImportSearch] = React.useState("");
@@ -52,16 +70,20 @@ export const Sidebar: React.FC = () => {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  const expandTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const collapseTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const collapseTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Custom hooks
   useDragDrop();
   useWindowPosition(isExpanded);
   useTraySync();
-  
+
   useGlobalHotkeys(() => {
-    setIsExpanded(prev => !prev);
+    setIsExpanded((prev) => !prev);
     if (!isExpanded) {
       setTimeout(() => searchInputRef.current?.focus(), 200);
     }
@@ -127,7 +149,7 @@ export const Sidebar: React.FC = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -135,12 +157,12 @@ export const Sidebar: React.FC = () => {
     if (!over) return;
 
     const activeType = active.data.current?.type;
-    
+
     // Handle Stack Reordering
     if (activeType === "stack") {
       const oldIndex = stacks.findIndex((s) => s.id === active.id);
       const newIndex = stacks.findIndex((s) => s.id === over.id);
-      
+
       if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
         reorderStacks(oldIndex, newIndex);
         addToast("Stack reordered", "info");
@@ -151,17 +173,19 @@ export const Sidebar: React.FC = () => {
     if (activeType === "item") {
       const activeItem = active.data.current?.item;
       const sourceStackId = active.data.current?.stackId;
-      
+
       // Target could be another item or a stack header
-      let targetStackId = over.data.current?.stackId || (over.data.current?.type === "stack" ? over.id : null);
-      
+      let targetStackId =
+        over.data.current?.stackId ||
+        (over.data.current?.type === "stack" ? over.id : null);
+
       if (activeItem && sourceStackId && targetStackId) {
-        const targetStack = stacks.find(s => s.id === targetStackId);
+        const targetStack = stacks.find((s) => s.id === targetStackId);
         if (!targetStack) return;
 
         let newIndex = targetStack.items.length;
         if (over.data.current?.type === "item") {
-          newIndex = targetStack.items.findIndex(i => i.id === over.id);
+          newIndex = targetStack.items.findIndex((i) => i.id === over.id);
         }
 
         moveItem(sourceStackId, targetStackId, activeItem.id, newIndex);
@@ -188,42 +212,49 @@ export const Sidebar: React.FC = () => {
     let targetStackId = stacks[0]?.id;
     if (!targetStackId) {
       addStack("General");
-      await new Promise(r => setTimeout(r, 100));
-      targetStackId = useDockStore.getState().stacks[0]?.id;
+      targetStackId = useDockStore.getState().stacks.at(-1)?.id;
     }
 
     if (targetStackId) {
       try {
         const processed = await processFile(app.path);
-        addItem(targetStackId, processed);
-        addToast(`Imported ${processed.name}`, "success");
+        const added = addItem(targetStackId, processed);
+        if (added) {
+          addToast(`Imported ${processed.name}`, "success");
+        } else {
+          addToast(`"${processed.name}" is already in this stack`, "warning");
+        }
       } catch (e) {
         addToast(`Failed to import ${app.name}`, "error");
       }
     }
   };
 
-  const filteredStartApps = startApps.filter(app => 
-    app.name.toLowerCase().includes(importSearch.toLowerCase())
+  const filteredStartApps = startApps.filter((app) =>
+    app.name.toLowerCase().includes(importSearch.toLowerCase()),
   );
 
   const filteredStacks = React.useMemo(() => {
     if (!searchQuery.trim()) return stacks;
     const query = searchQuery.toLowerCase();
-    return stacks.map(stack => {
-      const matchStackName = stack.name.toLowerCase().includes(query);
-      const filteredItems = stack.items.filter(item => 
-        item.name.toLowerCase().includes(query) || item.path.toLowerCase().includes(query)
-      );
-      if (matchStackName || filteredItems.length > 0) {
-        return {
-          ...stack,
-          items: filteredItems,
-          isExpanded: filteredItems.length > 0 ? true : stack.isExpanded
-        };
-      }
-      return null;
-    }).filter((s): s is NonNullable<typeof s> => s !== null);
+    return stacks
+      .map((stack) => {
+        const matchStackName = stack.name.toLowerCase().includes(query);
+        const filteredItems = stack.items.filter(
+          (item) =>
+            item.name.toLowerCase().includes(query) ||
+            item.path.toLowerCase().includes(query),
+        );
+        if (matchStackName || filteredItems.length > 0) {
+          return {
+            ...stack,
+            items: filteredItems,
+            isExpanded: filteredItems.length > 0 ? true : stack.isExpanded,
+          };
+        }
+        return null;
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
   }, [stacks, searchQuery]);
 
   if (!isLoaded) return null;
@@ -237,7 +268,9 @@ export const Sidebar: React.FC = () => {
       {!isExpanded && (
         <div className="sidebar-label">
           {"SideDockNest".split("").map((char, i) => (
-            <span key={i} className="sidebar-label-char">{char}</span>
+            <span key={i} className="sidebar-label-char">
+              {char}
+            </span>
           ))}
         </div>
       )}
@@ -256,7 +289,10 @@ export const Sidebar: React.FC = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button className="search-clear-btn" onClick={() => setSearchQuery("")}>
+                <button
+                  className="search-clear-btn"
+                  onClick={() => setSearchQuery("")}
+                >
                   <X size={12} />
                 </button>
               )}
@@ -301,12 +337,33 @@ export const Sidebar: React.FC = () => {
               </div>
             ) : showSettings ? (
               <div className="settings-controls">
-                <button className={`settings-icon-btn ${autoStart ? 'settings-icon-btn--active' : ''}`} onClick={handleToggleAutoStart} title="Auto-start"><Zap size={14} /></button>
+                <button
+                  className={`settings-icon-btn ${autoStart ? "settings-icon-btn--active" : ""}`}
+                  onClick={handleToggleAutoStart}
+                  title="Auto-start"
+                >
+                  <Zap size={14} />
+                </button>
                 <div className="divider-v" />
-                <button className="settings-icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Sun size={14} /></button>
-                <button className="settings-icon-btn" onClick={() => setSide(side === 'left' ? 'right' : 'left')}><AlignRight size={14} /></button>
+                <button
+                  className="settings-icon-btn"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                >
+                  <Sun size={14} />
+                </button>
+                <button
+                  className="settings-icon-btn"
+                  onClick={() => setSide(side === "left" ? "right" : "left")}
+                >
+                  <AlignRight size={14} />
+                </button>
                 <div className="spacer" />
-                <button className="settings-icon-btn" onClick={() => setShowSettings(false)}><X size={14} /></button>
+                <button
+                  className="settings-icon-btn"
+                  onClick={() => setShowSettings(false)}
+                >
+                  <X size={14} />
+                </button>
               </div>
             ) : (
               <div className="footer-btns">
@@ -314,10 +371,18 @@ export const Sidebar: React.FC = () => {
                   <Plus size={14} />
                   <span>Stack</span>
                 </button>
-                <button className="sidebar-icon-btn" onClick={handleOpenImport} title="Import Apps">
+                <button
+                  className="settings-btn"
+                  onClick={handleOpenImport}
+                  title="Import Apps"
+                >
                   <Sparkles size={14} />
                 </button>
-                <button className="settings-btn" onClick={() => setShowSettings(true)} title="Settings">
+                <button
+                  className="settings-btn"
+                  onClick={() => setShowSettings(true)}
+                  title="Settings"
+                >
                   <Settings size={14} />
                 </button>
               </div>
@@ -326,7 +391,11 @@ export const Sidebar: React.FC = () => {
         </div>
       )}
 
-      <Modal title="Import from Start Menu" isOpen={showImport} onClose={() => setShowImport(false)}>
+      <Modal
+        title="Import from Start Menu"
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+      >
         <div className="import-modal-content">
           <div className="search-container mb-4">
             <SearchIcon size={14} className="search-icon" />
@@ -346,8 +415,16 @@ export const Sidebar: React.FC = () => {
               <div className="no-results">No apps found</div>
             ) : (
               filteredStartApps.map((app, idx) => (
-                <button key={idx} className="start-menu-item" onClick={() => handleImportApp(app)}>
-                  <Sparkles size={12} className="text-accent" style={{opacity: 0.5}} />
+                <button
+                  key={idx}
+                  className="start-menu-item"
+                  onClick={() => handleImportApp(app)}
+                >
+                  <Sparkles
+                    size={12}
+                    className="text-accent"
+                    style={{ opacity: 0.5 }}
+                  />
                   <span className="start-menu-item-name">{app.name}</span>
                 </button>
               ))

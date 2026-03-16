@@ -5,6 +5,14 @@ import type { DockSide, AppTheme } from "../types/dock";
 
 const STORE_FILE = "config.json";
 
+// Cache the store instance to avoid reloading on every operation
+type TauriStore = Awaited<ReturnType<typeof load>>;
+let _configStore: TauriStore | null = null;
+const getStore = async (): Promise<TauriStore> => {
+  if (!_configStore) _configStore = await load(STORE_FILE);
+  return _configStore;
+};
+
 type ConfigState = {
   side: DockSide;
   theme: AppTheme;
@@ -52,11 +60,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   loadConfig: async () => {
     try {
-      const store = await load(STORE_FILE);
+      const store = await getStore();
       const side = await store.get<DockSide>("side");
       const theme = await store.get<AppTheme>("theme");
-      
-      // Check real system status
+
+      // Always read autoStart from the real system state
       const systemEnabled = await isEnabled();
 
       set({
@@ -74,10 +82,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   saveConfig: async () => {
     try {
       const state = get();
-      const store = await load(STORE_FILE);
+      const store = await getStore();
       await store.set("side", state.side);
       await store.set("theme", state.theme);
-      await store.set("autoStart", state.autoStart);
+      // autoStart is intentionally not saved here — it is always read from
+      // the OS via isEnabled() on load, so persisting it would be redundant.
       await store.save();
     } catch (e) {
       console.error("Failed to save config:", e);

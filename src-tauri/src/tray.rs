@@ -1,5 +1,5 @@
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     App, Emitter,
 };
@@ -9,13 +9,15 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let toggle_theme = MenuItem::with_id(app, "toggle_theme", "Switch Theme (Dark/Light)", true, None::<&str>)?;
     let toggle_autostart = MenuItem::with_id(app, "toggle_autostart", "Toggle Auto-start", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit SideDockNest", true, None::<&str>)?;
-    
+
+    let separator = PredefinedMenuItem::separator(app)?;
+
     let menu = Menu::with_items(app, &[
         &toggle_side,
         &toggle_theme,
         &toggle_autostart,
-        &MenuItem::with_id(app, "sep", "---", false, None::<&str>)?, // Separator
-        &quit
+        &separator,
+        &quit,
     ])?;
 
     TrayIconBuilder::new()
