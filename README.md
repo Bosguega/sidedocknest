@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# 🦅 SideDockNest
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### *O ninho definitivo para sua produtividade no Windows.*
 
-Currently, two official plugins are available:
+SideDockNest é um dock lateral minimalista, poderoso e elegante, projetado para manter sua área de trabalho limpa enquanto mantém seus aplicativos e arquivos a apenas um clique de distância. Construído com **Tauri**, **React** e **Rust**, ele oferece uma experiência nativa, leve e extremamente rápida.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## ✨ Funcionalidades Premium
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 📁 Smart Stacks (Pastas Inteligentes)
+Organize seu fluxo de trabalho em grupos lógicos. Crie "Stacks" para Desenvolvimento, Design, Games ou Documentos. Expanda apenas o que você precisa, quando precisa.
 
-## Expanding the ESLint configuration
+### 🔍 Busca Instantânea
+Não perca tempo procurando ícones. Pressione `Alt + Space`, comece a digitar e encontre qualquer item em milissegundos. A busca filtra stacks, nomes de arquivos e caminhos automaticamente.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### ⚡ Global Access (Alt + Space)
+Invoque o seu ninho de qualquer lugar do sistema. O atalho global abre o dock e foca na busca instantaneamente para uma experiência 100% focada no teclado se você desejar.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📦 Importação do Menu Iniciar
+Preencha seu dock em segundos! O assistente de importação escaneia seu Windows e permite que você adicione seus softwares favoritos via busca em tempo real.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 🖱️ Drag & Drop Avançado
+Arraste arquivos diretamente do Explorer para o dock para adicioná-los. Reordene Stacks ou mova itens entre pastas com arrastar e soltar suave e animado.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 🖥️ Inteligência Multi-monitor
+O SideDockNest entende seu setup. Ele detecta automaticamente o monitor ativo e se posiciona perfeitamente na borda da tela onde seu trabalho está acontecendo.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🎨 Design & Estética
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Glassmorphism**: Interface moderna com efeito de desfoque e transparência que se adapta ao seu papel de parede.
+- **Micro-animações**: Transições suaves que tornam a interação fluida e prazerosa.
+- **Dark & Light Mode**: Sincronização inteligente com o tema do seu sistema ou escolha manual via bandeja.
+- **Pixel Perfection**: Posicionamento preciso para garantir que o dock esteja sempre encostado na lateral, cobrindo 100% da altura da tela sem bordas sobrando.
+
+---
+
+## 🛠️ Tecnologias de Ponta
+
+- **Frontend**: [React](https://reactjs.org/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Backend**: [Rust](https://www.rust-lang.org/) + [Tauri v2](https://tauri.app/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Drag & Drop**: [@dnd-kit](https://dndkit.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+---
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+- [Node.js](https://nodejs.org/) (v18+)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (Padrão no Windows 10/11)
+
+### Passo a Passo
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/sidedocknest.git
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Inicie o ambiente de desenvolvimento:
+   ```bash
+   npm run tauri dev
+   ```
+
+---
+
+## 📄 Licença
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+*Feito com ❤️ para simplificar sua vida digital.*
