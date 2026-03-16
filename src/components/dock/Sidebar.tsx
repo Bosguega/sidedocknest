@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { commands } from "../../bridge/commands";
+import { systemBridge } from "../../bridge/system";
 import {
   DndContext,
   closestCenter,
@@ -89,6 +90,29 @@ export const Sidebar: React.FC = () => {
     }
   });
 
+  // Listen for tray left-click toggle-expand event
+  React.useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    let active = true;
+
+    systemBridge
+      .onTrayToggleExpand(() => {
+        setIsExpanded((prev) => !prev);
+      })
+      .then((fn) => {
+        if (active) {
+          cleanup = fn;
+        } else {
+          fn();
+        }
+      });
+
+    return () => {
+      active = false;
+      cleanup?.();
+    };
+  }, []);
+
   // Periodic path validation
   React.useEffect(() => {
     if (!isLoaded) return;
@@ -120,11 +144,8 @@ export const Sidebar: React.FC = () => {
     }, 400);
   };
 
-  const handleToggleAutoStart = async () => {
-    await toggleAutoStart();
-    const newValue = useConfigStore.getState().autoStart;
-    addToast(newValue ? "Auto-start enabled" : "Auto-start disabled", "info");
-  };
+  // Toast is now emitted inside toggleAutoStart (configStore) — no duplication needed.
+  const handleToggleAutoStart = () => toggleAutoStart();
 
   const handleAddStack = () => {
     setIsAdding(true);
@@ -172,12 +193,14 @@ export const Sidebar: React.FC = () => {
     // Handle Item Movement
     if (activeType === "item") {
       const activeItem = active.data.current?.item;
-      const sourceStackId = active.data.current?.stackId;
+      const sourceStackId = active.data.current?.stackId as string | undefined;
 
-      // Target could be another item or a stack header
-      let targetStackId =
-        over.data.current?.stackId ||
-        (over.data.current?.type === "stack" ? over.id : null);
+      // Resolve the target stack: prefer explicit stackId from item data,
+      // fall back to the stack id when dropping directly onto a stack header.
+      const rawTargetId =
+        (over.data.current?.stackId as string | undefined) ||
+        (over.data.current?.type === "stack" ? String(over.id) : null);
+      const targetStackId: string | null = rawTargetId ?? null;
 
       if (activeItem && sourceStackId && targetStackId) {
         const targetStack = stacks.find((s) => s.id === targetStackId);
@@ -198,7 +221,7 @@ export const Sidebar: React.FC = () => {
     setShowImport(true);
     setIsLoadingApps(true);
     try {
-      const apps = await commands.listStartMenuItems() as StartMenuItem[];
+      const apps = (await commands.listStartMenuItems()) as StartMenuItem[];
       setStartApps(apps);
     } catch (e) {
       console.error("Failed to load start menu apps:", e);
@@ -209,24 +232,20 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleImportApp = async (app: StartMenuItem) => {
-    let targetStackId = stacks[0]?.id;
-    if (!targetStackId) {
-      addStack("General");
-      targetStackId = useDockStore.getState().stacks.at(-1)?.id;
-    }
+    // addStack now returns the new id directly — no fragile .at(-1) read.
+    const targetStackId = stacks[0]?.id ?? addStack("General");
 
-    if (targetStackId) {
-      try {
-        const processed = await processFile(app.path);
-        const added = addItem(targetStackId, processed);
-        if (added) {
-          addToast(`Imported ${processed.name}`, "success");
-        } else {
-          addToast(`"${processed.name}" is already in this stack`, "warning");
-        }
-      } catch (e) {
-        addToast(`Failed to import ${app.name}`, "error");
+    try {
+      const processed = await processFile(app.path);
+      const added = addItem(targetStackId, processed);
+      if (added) {
+        addToast(`Imported ${processed.name}`, "success");
+      } else {
+        addToast(`"${processed.name}" is already in this stack`, "warning");
       }
+    } catch (e) {
+      console.error("Failed to import app:", e);
+      addToast(`Failed to import ${app.name}`, "error");
     }
   };
 
@@ -348,12 +367,14 @@ export const Sidebar: React.FC = () => {
                 <button
                   className="settings-icon-btn"
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  title="Toggle theme"
                 >
                   <Sun size={14} />
                 </button>
                 <button
                   className="settings-icon-btn"
                   onClick={() => setSide(side === "left" ? "right" : "left")}
+                  title="Switch side"
                 >
                   <AlignRight size={14} />
                 </button>
@@ -361,6 +382,7 @@ export const Sidebar: React.FC = () => {
                 <button
                   className="settings-icon-btn"
                   onClick={() => setShowSettings(false)}
+                  title="Close settings"
                 >
                   <X size={14} />
                 </button>
@@ -397,7 +419,8 @@ export const Sidebar: React.FC = () => {
         onClose={() => setShowImport(false)}
       >
         <div className="import-modal-content">
-          <div className="search-container mb-4">
+          {/* inline margin instead of the lone .mb-4 utility class */}
+          <div className="search-container" style={{ marginBottom: "1rem" }}>
             <SearchIcon size={14} className="search-icon" />
             <input
               type="text"
@@ -414,9 +437,10 @@ export const Sidebar: React.FC = () => {
             ) : filteredStartApps.length === 0 ? (
               <div className="no-results">No apps found</div>
             ) : (
-              filteredStartApps.map((app, idx) => (
+              // app.path is unique per entry — safer key than array index
+              filteredStartApps.map((app) => (
                 <button
-                  key={idx}
+                  key={app.path}
                   className="start-menu-item"
                   onClick={() => handleImportApp(app)}
                 >

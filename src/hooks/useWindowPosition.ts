@@ -6,32 +6,34 @@ import { useConfigStore } from "../stores/configStore";
 export function useWindowPosition(isExpanded: boolean) {
   const { side } = useConfigStore();
   const isResizing = useRef(false);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const updatePosition = async () => {
       if (isResizing.current) return;
       isResizing.current = true;
-      
+
       try {
-        // Call unified Rust command to handle both size and position atomically
         await commands.updateWindowBounds(isExpanded, side);
       } catch (e) {
         console.error("Failed to update window bounds via Rust:", e);
       } finally {
-        // Reduced debounce time to make it feel more responsive
-        setTimeout(() => { isResizing.current = false; }, 100);
+        if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+        resizeTimerRef.current = setTimeout(() => {
+          isResizing.current = false;
+        }, 100);
       }
     };
 
     updatePosition();
-    
-    // Listen for window events to keep in sync if monitor/res changes
+
     const unlistenPromise = getCurrentWindow().onResized(() => {
-        if (!isResizing.current) updatePosition();
+      if (!isResizing.current) updatePosition();
     });
 
     return () => {
-      unlistenPromise.then(unlisten => unlisten());
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+      unlistenPromise.then((unlisten) => unlisten());
     };
   }, [side, isExpanded]);
 }

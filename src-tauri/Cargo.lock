@@ -3962,7 +3962,6 @@ name = "sidedocknest"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "image",
  "lnk",
  "log",
  "open",

@@ -25,8 +25,13 @@ type Props = {
 };
 
 export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
-  const { stacks, renameItem, reorderItems } = useDockStore();
+  // Narrow selectors — this component only re-renders when its own stack changes,
+  // not on every dock-wide state update.
+  const stack = useDockStore((s) => s.stacks.find((st) => st.id === stackId));
+  const renameItem = useDockStore((s) => s.renameItem);
+  const reorderItems = useDockStore((s) => s.reorderItems);
   const addToast = useToastStore((s) => s.addToast);
+
   const [showContext, setShowContext] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editName, setEditName] = React.useState(item.name);
@@ -56,6 +61,8 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 20 : 1,
   };
+
+  const itemIndex = stack ? stack.items.findIndex((i) => i.id === item.id) : -1;
 
   const handleClick = async () => {
     if (isEditing) return;
@@ -114,9 +121,6 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
     setShowContext(false);
   };
 
-  const stack = stacks.find(s => s.id === stackId);
-  const itemIndex = stack ? stack.items.findIndex(i => i.id === item.id) : -1;
-
   const handleMoveUp = () => {
     if (itemIndex > 0) {
       reorderItems(stackId, itemIndex, itemIndex - 1);
@@ -160,7 +164,7 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   };
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
       className={`dock-item-wrapper ${item.isValid === false ? "dock-item-wrapper--invalid" : ""}`}
@@ -170,7 +174,9 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onDoubleClick={handleRenameTrigger}
-        title={item.isValid === false ? `PATH NOT FOUND: ${item.path}` : item.path}
+        title={
+          item.isValid === false ? `PATH NOT FOUND: ${item.path}` : item.path
+        }
         {...attributes}
         {...listeners}
       >
@@ -188,7 +194,7 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
             getFallbackIcon()
           )}
         </span>
-        
+
         {isEditing ? (
           <input
             ref={inputRef}
@@ -218,28 +224,28 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
             <Edit2 size={13} />
             <span>Rename Item</span>
           </button>
-          
+
           <div className="context-menu-divider" />
 
-          <button 
-            className="context-menu-item" 
+          <button
+            className="context-menu-item"
             onClick={handleMoveUp}
-            disabled={itemIndex === 0}
+            disabled={itemIndex <= 0}
           >
             <ArrowUp size={13} />
             <span>Move Up</span>
           </button>
-          <button 
-            className="context-menu-item" 
+          <button
+            className="context-menu-item"
             onClick={handleMoveDown}
-            disabled={stack && itemIndex === stack.items.length - 1}
+            disabled={!stack || itemIndex >= stack.items.length - 1}
           >
             <ArrowDown size={13} />
             <span>Move Down</span>
           </button>
 
           <div className="context-menu-divider" />
-          
+
           <button
             className="context-menu-item context-menu-item--danger"
             onClick={handleRemove}

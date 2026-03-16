@@ -1,9 +1,6 @@
 use std::process::Command;
 use tauri::{PhysicalPosition, PhysicalSize, Position, Size};
 
-#[cfg(windows)]
-// use base64::Engine; // Removed unused
-
 /// Opens a file, folder, or application using the system's default handler.
 #[tauri::command]
 pub fn open_file(path: String) -> Result<(), String> {
@@ -31,25 +28,22 @@ pub fn open_file_location(path: String) -> Result<(), String> {
 }
 
 /// Extracts the icon from a file and returns it as a base64-encoded PNG string.
+/// windows-icons already returns a base64 string — no manual encoding needed.
 #[cfg(windows)]
 #[tauri::command]
 pub fn extract_icon(path: String) -> Result<String, String> {
-    use base64::engine::general_purpose::STANDARD;
-    use base64::Engine;
-
     let path_obj = std::path::Path::new(&path);
     if !path_obj.exists() {
         return Err(format!("Path does not exist: {}", path));
     }
 
-    // Try to extract icon using windows-icons
     match windows_icons::get_icon_base64_by_path(&path) {
         Ok(base64_icon) => Ok(base64_icon),
         Err(e) => Err(format!("Failed to extract icon from '{}': {:?}", path, e)),
     }
 }
 
-/// Fallback for non-Windows platforms
+/// Fallback for non-Windows platforms.
 #[cfg(not(windows))]
 #[tauri::command]
 pub fn extract_icon(_path: String) -> Result<String, String> {
@@ -78,49 +72,15 @@ pub fn resolve_shortcut(path: String) -> Result<String, String> {
     Err(format!("Could not resolve shortcut target for '{}'", path))
 }
 
-/// Fallback for non-Windows platforms
+/// Fallback for non-Windows platforms.
 #[cfg(not(windows))]
 #[tauri::command]
 pub fn resolve_shortcut(_path: String) -> Result<String, String> {
     Err("Shortcut resolution is only supported on Windows".to_string())
 }
 
-#[derive(serde::Serialize)]
-pub struct MonitorInfo {
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-    pub work_x: i32,
-    pub work_y: i32,
-    pub work_width: u32,
-    pub work_height: u32,
-}
-
-/// Returns the information of the monitor the window is currently on.
-#[tauri::command]
-pub fn get_active_monitor_info(window: tauri::WebviewWindow) -> Result<MonitorInfo, String> {
-    let monitor = window
-        .current_monitor()
-        .map_err(|e| format!("Failed to get current monitor: {:?}", e))?
-        .ok_or_else(|| "No monitor found".to_string())?;
-
-    let size = monitor.size();
-    let pos = monitor.position();
-    let work_area = monitor.work_area(); // Rect { position, size }
-    
-    Ok(MonitorInfo {
-        x: pos.x,
-        y: pos.y,
-        width: size.width,
-        height: size.height,
-        work_x: work_area.position.x,
-        work_y: work_area.position.y,
-        work_width: work_area.size.width,
-        work_height: work_area.size.height,
-    })
-}
-
+/// Calculates and applies the correct size and position for the dock window.
+/// Called both on startup (collapsed) and whenever the side or expand state changes.
 #[tauri::command]
 pub fn update_window_bounds(
     window: tauri::WebviewWindow,
@@ -176,6 +136,7 @@ pub struct StartMenuItem {
     pub path: String,
 }
 
+/// Lists all .lnk and .exe entries from the system and user Start Menu folders.
 #[tauri::command]
 pub fn list_start_menu_items() -> Vec<StartMenuItem> {
     use std::env;
@@ -186,10 +147,13 @@ pub fn list_start_menu_items() -> Vec<StartMenuItem> {
 
     // System-wide start menu
     paths.push("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs".to_string());
-    
+
     // User-specific start menu
     if let Ok(appdata) = env::var("APPDATA") {
-        paths.push(format!("{}\\Microsoft\\Windows\\Start Menu\\Programs", appdata));
+        paths.push(format!(
+            "{}\\Microsoft\\Windows\\Start Menu\\Programs",
+            appdata
+        ));
     }
 
     for base_path in paths {
@@ -198,14 +162,18 @@ pub fn list_start_menu_items() -> Vec<StartMenuItem> {
             .filter_map(|e| e.ok())
             .filter(|e| {
                 let p = e.path();
-                p.is_file() && (p.extension().map_or(false, |ext| ext == "lnk" || ext == "exe"))
+                p.is_file()
+                    && (p
+                        .extension()
+                        .map_or(false, |ext| ext == "lnk" || ext == "exe"))
             })
         {
             let path = entry.path();
-            let name = path.file_stem()
+            let name = path
+                .file_stem()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
-            
+
             items.push(StartMenuItem {
                 name,
                 path: path.to_string_lossy().to_string(),

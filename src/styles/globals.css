@@ -852,10 +852,6 @@ body,
     text-overflow: ellipsis;
 }
 
-.mb-4 {
-    margin-bottom: 1rem;
-}
-
 .text-accent {
     color: var(--accent);
 }

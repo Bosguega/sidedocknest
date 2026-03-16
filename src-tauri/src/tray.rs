@@ -20,10 +20,28 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         &quit,
     ])?;
 
+    // Use expect() instead of unwrap() to give a meaningful panic message
+    // if the icon is missing from tauri.conf.json
+    let icon = app
+        .default_window_icon()
+        .expect("Default window icon not configured in tauri.conf.json")
+        .clone();
+
     TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(false)
+        // Left-click toggles the dock expand state via a frontend event
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click {
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let _ = tray.app_handle().emit("tray-toggle-expand", ());
+            }
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => {
                 app.exit(0);

@@ -22,7 +22,8 @@ type DockState = {
   isLoaded: boolean;
 
   // Stack CRUD
-  addStack: (name: string) => void;
+  // Returns the ID of the newly created stack.
+  addStack: (name: string) => string;
   removeStack: (stackId: string) => void;
   renameStack: (stackId: string, newName: string) => void;
   toggleStack: (stackId: string) => void;
@@ -64,7 +65,7 @@ export const useDockStore = create<DockState>((set, get) => ({
   stacks: [],
   isLoaded: false,
 
-  addStack: (name: string) => {
+  addStack: (name: string): string => {
     const newStack: DockStack = {
       id: generateId(),
       name,
@@ -74,6 +75,7 @@ export const useDockStore = create<DockState>((set, get) => ({
     };
     set((state) => ({ stacks: [...state.stacks, newStack] }));
     debouncedSave(get().saveToStore);
+    return newStack.id;
   },
 
   removeStack: (stackId: string) => {
@@ -223,7 +225,7 @@ export const useDockStore = create<DockState>((set, get) => ({
         const updatedItems = await Promise.all(
           stack.items.map(async (item) => {
             try {
-              const exists = await commands.pathExists(item.path) as boolean;
+              const exists = (await commands.pathExists(item.path)) as boolean;
               return { ...item, isValid: exists };
             } catch {
               return { ...item, isValid: false };
@@ -256,7 +258,18 @@ export const useDockStore = create<DockState>((set, get) => ({
   saveToStore: async () => {
     try {
       const store = await getStore();
-      await store.set("stacks", get().stacks);
+      // Strip the transient `isValid` field before persisting — it is always
+      // recomputed via checkPaths() on load, so saving it would only cause
+      // stale validity state on the next startup.
+      const stacksToSave = get().stacks.map((s) => ({
+        ...s,
+        items: s.items.map((item) => {
+          const saved = { ...item };
+          delete saved.isValid;
+          return saved;
+        }),
+      }));
+      await store.set("stacks", stacksToSave);
       await store.save();
     } catch (e) {
       console.error("Failed to save dock data:", e);

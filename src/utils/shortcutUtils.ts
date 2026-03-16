@@ -38,7 +38,7 @@ export async function processFile(rawPath: string): Promise<{
   // Resolve .lnk shortcuts
   if (path.toLowerCase().endsWith(".lnk")) {
     try {
-      const resolved = await commands.resolveShortcut(path) as string;
+      const resolved = (await commands.resolveShortcut(path)) as string;
       path = resolved;
       itemType = getItemType(path);
     } catch (e) {
@@ -46,22 +46,21 @@ export async function processFile(rawPath: string): Promise<{
     }
   }
 
-  // Extract icon
+  // Extract icon — try rawPath first, fall back to resolved path
   let icon: string | undefined;
   try {
-    icon = await commands.extractIcon(rawPath) as string;
-  } catch (e) {
-    // If rawPath failed (maybe it's a link to a non-existent file), try resolved path
+    icon = (await commands.extractIcon(rawPath)) as string;
+  } catch {
     try {
-      icon = await commands.extractIcon(path) as string;
-    } catch (e2) {
-      console.warn("Could not extract icon for both paths:", e2);
+      icon = (await commands.extractIcon(path)) as string;
+    } catch (e) {
+      console.warn("Could not extract icon for both paths:", e);
     }
   }
 
   return {
     name: getItemName(rawPath),
-    path: rawPath, // We keep the original path for the item so it stays valid as a shortcut if it was one
+    path: rawPath,
     type: itemType,
     icon,
   };

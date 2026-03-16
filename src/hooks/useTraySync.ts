@@ -1,11 +1,9 @@
 import { useEffect } from "react";
 import { useConfigStore } from "../stores/configStore";
-import { useToastStore } from "../stores/toastStore";
 import { systemBridge } from "../bridge/system";
 
 export function useTraySync() {
   const { setSide, setTheme, toggleAutoStart } = useConfigStore();
-  const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
     let unlistenSide: (() => void) | null = null;
@@ -14,21 +12,22 @@ export function useTraySync() {
 
     const setup = async () => {
       unlistenSide = await systemBridge.onTrayToggleSide(() => {
-        const nextSide = useConfigStore.getState().side === "left" ? "right" : "left";
+        const nextSide =
+          useConfigStore.getState().side === "left" ? "right" : "left";
         setSide(nextSide);
-        addToast(`Moved to ${nextSide}`, "info");
+        // Toast is emitted inside setSide (configStore)
       });
 
       unlistenTheme = await systemBridge.onTrayToggleTheme(() => {
-        const nextTheme = useConfigStore.getState().theme === "dark" ? "light" : "dark";
+        const nextTheme =
+          useConfigStore.getState().theme === "dark" ? "light" : "dark";
         setTheme(nextTheme);
-        addToast(`Switched to ${nextTheme} theme`, "info");
+        // Toast is emitted inside setTheme (configStore)
       });
 
       unlistenAuto = await systemBridge.onTrayToggleAutostart(async () => {
         await toggleAutoStart();
-        const nextValue = useConfigStore.getState().autoStart;
-        addToast(nextValue ? "Auto-start enabled" : "Auto-start disabled", "info");
+        // Toast is emitted inside toggleAutoStart (configStore)
       });
     };
 
@@ -39,5 +38,5 @@ export function useTraySync() {
       if (unlistenTheme) unlistenTheme();
       if (unlistenAuto) unlistenAuto();
     };
-  }, [setSide, setTheme, toggleAutoStart, addToast]);
+  }, [setSide, setTheme, toggleAutoStart]);
 }

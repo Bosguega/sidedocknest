@@ -24,14 +24,18 @@ type Props = {
 };
 
 export const Stack: React.FC<Props> = ({ stack }) => {
-  const {
-    stacks,
-    toggleStack,
-    removeItem,
-    removeStack,
-    renameStack,
-    reorderStacks,
-  } = useDockStore();
+  // Narrow selectors — only re-render when the relevant slice changes,
+  // not on every dock mutation.
+  const stackIndex = useDockStore((s) =>
+    s.stacks.findIndex((st) => st.id === stack.id),
+  );
+  const stackCount = useDockStore((s) => s.stacks.length);
+  const toggleStack = useDockStore((s) => s.toggleStack);
+  const removeItem = useDockStore((s) => s.removeItem);
+  const removeStack = useDockStore((s) => s.removeStack);
+  const renameStack = useDockStore((s) => s.renameStack);
+  const reorderStacks = useDockStore((s) => s.reorderStacks);
+
   const addToast = useToastStore((s) => s.addToast);
   const [showContext, setShowContext] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -40,7 +44,6 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   const contextRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Setup sortable for the stack itself
   const {
     attributes,
     listeners,
@@ -111,17 +114,15 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   };
 
   const handleMoveUp = () => {
-    const index = stacks.findIndex((s) => s.id === stack.id);
-    if (index > 0) {
-      reorderStacks(index, index - 1);
+    if (stackIndex > 0) {
+      reorderStacks(stackIndex, stackIndex - 1);
     }
     setShowContext(false);
   };
 
   const handleMoveDown = () => {
-    const index = stacks.findIndex((s) => s.id === stack.id);
-    if (index < stacks.length - 1) {
-      reorderStacks(index, index + 1);
+    if (stackIndex < stackCount - 1) {
+      reorderStacks(stackIndex, stackIndex + 1);
     }
     setShowContext(false);
   };
@@ -140,8 +141,6 @@ export const Stack: React.FC<Props> = ({ stack }) => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showContext]);
-
-  const index = stacks.findIndex((s) => s.id === stack.id);
 
   return (
     <div
@@ -216,7 +215,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           <button
             className="context-menu-item"
             onClick={handleMoveUp}
-            disabled={index === 0}
+            disabled={stackIndex === 0}
           >
             <ArrowUp size={13} />
             <span>Move Up</span>
@@ -224,7 +223,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           <button
             className="context-menu-item"
             onClick={handleMoveDown}
-            disabled={index === stacks.length - 1}
+            disabled={stackIndex === stackCount - 1}
           >
             <ArrowDown size={13} />
             <span>Move Down</span>
@@ -241,6 +240,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
           </button>
         </div>
       )}
+
       <Modal
         title="Delete Stack"
         isOpen={showDeleteConfirm}

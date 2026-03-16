@@ -30,6 +30,5 @@ open = "5"
 
 [target.'cfg(windows)'.dependencies]
 windows-icons = "0.3"
-image = "0.25"
 base64 = "0.22"
 lnk = "0.5"

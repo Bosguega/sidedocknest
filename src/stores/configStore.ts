@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { load } from "@tauri-apps/plugin-store";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import type { DockSide, AppTheme } from "../types/dock";
+import { useToastStore } from "./toastStore";
 
 const STORE_FILE = "config.json";
 
@@ -11,6 +12,13 @@ let _configStore: TauriStore | null = null;
 const getStore = async (): Promise<TauriStore> => {
   if (!_configStore) _configStore = await load(STORE_FILE);
   return _configStore;
+};
+
+// Debounce save to avoid multiple concurrent writes on rapid changes
+let _saveTimeout: ReturnType<typeof setTimeout> | null = null;
+const debouncedSaveConfig = (saveFunc: () => Promise<void>) => {
+  if (_saveTimeout) clearTimeout(_saveTimeout);
+  _saveTimeout = setTimeout(() => saveFunc(), 300);
 };
 
 type ConfigState = {
@@ -35,12 +43,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   setSide: (side: DockSide) => {
     set({ side });
-    get().saveConfig();
+    debouncedSaveConfig(get().saveConfig);
+    useToastStore.getState().addToast(`Moved to ${side}`, "info");
   },
 
   setTheme: (theme: AppTheme) => {
     set({ theme });
-    get().saveConfig();
+    debouncedSaveConfig(get().saveConfig);
+    useToastStore.getState().addToast(`Switched to ${theme} theme`, "info");
   },
 
   toggleAutoStart: async () => {
@@ -53,6 +63,12 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       }
       set({ autoStart: nextValue });
       await get().saveConfig();
+      useToastStore
+        .getState()
+        .addToast(
+          nextValue ? "Auto-start enabled" : "Auto-start disabled",
+          "info",
+        );
     } catch (e) {
       console.error("Failed to toggle autostart:", e);
     }
