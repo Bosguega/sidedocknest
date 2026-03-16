@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bridge/commands";
 import { useConfigStore } from "../stores/configStore";
 
 export function useWindowPosition(isExpanded: boolean) {
@@ -14,10 +14,7 @@ export function useWindowPosition(isExpanded: boolean) {
       
       try {
         // Call unified Rust command to handle both size and position atomically
-        await invoke("update_window_bounds", { 
-            isExpanded, 
-            side 
-        });
+        await commands.updateWindowBounds(isExpanded, side);
       } catch (e) {
         console.error("Failed to update window bounds via Rust:", e);
       } finally {

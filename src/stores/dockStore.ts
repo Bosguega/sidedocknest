@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { load } from "@tauri-apps/plugin-store";
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bridge/commands";
 import type { DockStack, DockItem } from "../types/dock";
 
 const STORE_FILE = "dock-data.json";
@@ -223,9 +223,7 @@ export const useDockStore = create<DockState>((set, get) => ({
         const updatedItems = await Promise.all(
           stack.items.map(async (item) => {
             try {
-              const exists = await invoke<boolean>("path_exists", {
-                path: item.path,
-              });
+              const exists = await commands.pathExists(item.path) as boolean;
               return { ...item, isValid: exists };
             } catch {
               return { ...item, isValid: false };

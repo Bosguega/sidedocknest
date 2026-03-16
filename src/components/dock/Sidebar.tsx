@@ -9,7 +9,7 @@ import {
   Search as SearchIcon,
   Sparkles,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../../bridge/commands";
 import {
   DndContext,
   closestCenter,
@@ -198,7 +198,7 @@ export const Sidebar: React.FC = () => {
     setShowImport(true);
     setIsLoadingApps(true);
     try {
-      const apps = await invoke<StartMenuItem[]>("list_start_menu_items");
+      const apps = await commands.listStartMenuItems() as StartMenuItem[];
       setStartApps(apps);
     } catch (e) {
       console.error("Failed to load start menu apps:", e);

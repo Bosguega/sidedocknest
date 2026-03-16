@@ -1,13 +1,17 @@
-# 🛠️ SideDockNest — Workflow 01
 
-## Full Height + Edge Position
 
-Este documento define as alterações necessárias para que a janela do **SideDockNest**:
+## Implementação de Command Bridge + System Bridge
 
-* ocupe **100% da altura do monitor**
-* fique **sempre colada na borda da tela**
-* **não altere nenhuma outra funcionalidade existente**
+Este workflow adiciona uma **camada de Bridge** entre o frontend e o backend do app.
 
+Objetivo:
+
+* centralizar chamadas `invoke`
+* centralizar eventos do sistema
+* reduzir dependência direta das APIs do Tauri
+* preparar o projeto para futuras features (dock behavior, monitor detection, fullscreen auto-hide)
+
+Tecnologia alvo: Tauri
 
 ---
 
@@ -15,176 +19,237 @@ Este documento define as alterações necessárias para que a janela do **SideDo
 
 O agente **NÃO deve**:
 
-* alterar comandos existentes
-* modificar `tray`
-* alterar plugins
-* modificar `invoke_handler`
-* alterar arquivos do frontend
-* refatorar o código
+* alterar código Rust
+* modificar stores existentes
+* alterar lógica de componentes
+* refatorar arquivos não mencionados
 
-O agente deve **apenas inserir um bloco de código no setup()**.
+O agente deve **apenas**:
 
----
-
-# 📁 Arquivo alvo
-
-```
-src-tauri/src/lib.rs
-```
+1. criar os arquivos de bridge
+2. migrar **um hook específico**
+3. manter todo comportamento existente
 
 ---
 
-# 1️⃣ Adicionar imports necessários
+# 📁 Estrutura final esperada
 
-No topo do arquivo localizar os imports existentes e adicionar:
+Após este workflow a estrutura deverá conter:
 
-```rust
-use tauri::{Manager, PhysicalPosition, PhysicalSize, Position, Size};
-```
-
-Se algum desses imports já existir **não duplicar**.
-
----
-
-# 2️⃣ Localizar função `run()`
-
-Encontrar:
-
-```rust
-pub fn run()
-```
-
-Dentro dela localizar o builder:
-
-```rust
-tauri::Builder::default()
+```id="4y1n3f"
+src
+ ├ bridge
+ │   ├ commands.ts
+ │   └ system.ts
+ │
+ ├ hooks
+ │   └ useTraySync.ts
 ```
 
 ---
 
-# 3️⃣ Localizar bloco `setup`
+# 1️⃣ Criar pasta bridge
 
-Encontrar:
+Criar pasta:
 
-```rust
-.setup(|app| {
+```id="6f1z9c"
+src/bridge
 ```
 
 ---
 
-# 4️⃣ Inserir código de controle de janela
+# 2️⃣ Criar Command Bridge
 
-**Imediatamente após a abertura do setup**, inserir o seguinte bloco:
+Criar arquivo:
 
-```rust
-// ===== SIDEDOCKNEST WINDOW SIZE + POSITION CONTROL =====
+```id="7l2g6a"
+src/bridge/commands.ts
+```
 
-let window = app.get_webview_window("main").unwrap();
+Conteúdo:
 
-if let Some(monitor) = window.current_monitor().unwrap() {
+```ts id="b33q0t"
+import { invoke } from "@tauri-apps/api/core";
 
-    let monitor_size = monitor.size();
-    let monitor_position = monitor.position();
+export const commands = {
+  openFile: (path: string) =>
+    invoke("open_file", { path }),
 
-    let sidebar_width = 220;
-    let sidebar_height = monitor_size.height;
+  openFileLocation: (path: string) =>
+    invoke("open_file_location", { path }),
 
-    window.set_size(Size::Physical(
-        PhysicalSize {
-            width: sidebar_width,
-            height: sidebar_height,
-        }
-    ))?;
+  extractIcon: (path: string) =>
+    invoke("extract_icon", { path }),
 
-    window.set_position(Position::Physical(
-        PhysicalPosition {
-            x: monitor_position.x,
-            y: monitor_position.y,
-        }
-    ))?;
-}
+  resolveShortcut: (path: string) =>
+    invoke("resolve_shortcut", { path }),
 
-// ===== END SIDEDOCKNEST WINDOW CONTROL =====
+  getMonitorInfo: () =>
+    invoke("get_active_monitor_info"),
+
+  pathExists: (path: string) =>
+    invoke("path_exists", { path }),
+
+  listStartMenuItems: () =>
+    invoke("list_start_menu_items")
+};
+```
+
+Este arquivo **centraliza todas as chamadas invoke**.
+
+---
+
+# 3️⃣ Criar System Bridge
+
+Criar arquivo:
+
+```id="zcm7kq"
+src/bridge/system.ts
+```
+
+Conteúdo:
+
+```ts id="q1h6kp"
+import { listen } from "@tauri-apps/api/event";
+
+export const systemBridge = {
+
+  onTrayToggleSide: (handler: () => void) =>
+    listen("tray-toggle-side", handler),
+
+  onTrayToggleTheme: (handler: () => void) =>
+    listen("tray-toggle-theme", handler),
+
+  onTrayToggleAutostart: (handler: () => void) =>
+    listen("tray-toggle-autostart", handler)
+};
+```
+
+Este arquivo **centraliza eventos do sistema**.
+
+---
+
+# 4️⃣ Migrar hook useTraySync
+
+Arquivo alvo:
+
+```id="q5r1l0"
+src/hooks/useTraySync.ts
+```
+
+Adicionar import:
+
+```ts id="n4u2bg"
+import { systemBridge } from "../bridge/system";
 ```
 
 ---
 
-# 5️⃣ Estrutura final esperada
+# 5️⃣ Substituir listeners
 
-O bloco `setup` deverá ficar semelhante a:
+Substituir chamadas diretas de:
 
-```rust
-.setup(|app| {
-
-    // window control block
-    ...
-
-    if cfg!(debug_assertions) {
-        ...
-    }
-
-    tray::create_tray(app)?;
-
-    Ok(())
-})
+```id="o3sl1e"
+listen("tray-toggle-side")
 ```
 
-A ordem do restante do código **não deve ser alterada**.
+por:
 
----
-
-# 6️⃣ Resultado esperado
-
-Após iniciar o aplicativo:
-
-```
-npm run tauri dev
-```
-
-A janela deve:
-
-✔ ocupar **100% da altura da tela**
-✔ iniciar **colada na borda esquerda**
-✔ manter largura **220px**
-✔ manter todas as funcionalidades existentes
-
-Visual esperado:
-
-```
-┌ Sidebar (220px) │ Desktop
-│                 │
-│                 │
-│                 │
-│                 │
-│                 │
-│                 │
-└─────────────────┘
+```id="1tf1lw"
+systemBridge.onTrayToggleSide()
 ```
 
 ---
 
-# 7️⃣ Critérios de validação
+Substituir:
+
+```id="2tsqvt"
+listen("tray-toggle-theme")
+```
+
+por:
+
+```id="q1fq84"
+systemBridge.onTrayToggleTheme()
+```
+
+---
+
+Substituir:
+
+```id="3bdgje"
+listen("tray-toggle-autostart")
+```
+
+por:
+
+```id="r0z9ku"
+systemBridge.onTrayToggleAutostart()
+```
+
+---
+
+# 6️⃣ Exemplo do novo uso
+
+Antes:
+
+```ts id="4mb1ub"
+await listen("tray-toggle-side", () => {
+```
+
+Depois:
+
+```ts id="y2e6bc"
+await systemBridge.onTrayToggleSide(() => {
+```
+
+---
+
+# 7️⃣ Nenhuma outra mudança deve ocorrer
+
+Confirmar que **nenhum outro comportamento foi alterado**:
+
+* stores continuam iguais
+* toast continua funcionando
+* eventos do tray continuam funcionando
+* lógica de side/theme/autostart permanece igual
+
+---
+
+# 8️⃣ Teste após implementação
+
+Executar:
+
+```id="xtb8ls"
+npm run dev
+```
+
+Testar:
+
+1️⃣ alterar lado da sidebar pelo tray
+2️⃣ alterar tema pelo tray
+3️⃣ ativar/desativar autostart
 
 Confirmar que:
 
-* o app inicia normalmente
-* o tray continua funcionando
-* atalhos globais continuam funcionando
-* drag & drop continua funcionando
-* a sidebar ocupa a altura total do monitor
+```id="8f6z2g"
+✔ eventos continuam funcionando
+✔ toasts aparecem normalmente
+✔ estado continua sendo salvo
+```
 
 ---
 
-# 8️⃣ O que **não deve mudar**
+# 9️⃣ Benefícios da mudança
 
-Esses comportamentos devem permanecer intactos:
+Após esse workflow o projeto ganha:
 
-* `alwaysOnTop`
-* `transparent`
-* `skipTaskbar`
-* `dragDropEnabled`
-* system tray
-* comandos Tauri existentes
+```id="l7mp1u"
+centralização de APIs Tauri
+código frontend mais limpo
+facilidade de refatoração
+preparação para novos módulos
+```
 
 ---
 

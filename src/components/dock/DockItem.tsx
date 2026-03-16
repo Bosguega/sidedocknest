@@ -1,5 +1,5 @@
 import React from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../../bridge/commands";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -60,7 +60,7 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   const handleClick = async () => {
     if (isEditing) return;
     try {
-      await invoke("open_file", { path: item.path });
+      await commands.openFile(item.path);
     } catch (e) {
       console.error("Failed to open:", e);
       addToast(`Failed to open: ${item.name}`, "error");
@@ -100,7 +100,7 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
 
   const handleOpenLocation = async () => {
     try {
-      await invoke("open_file_location", { path: item.path });
+      await commands.openFileLocation(item.path);
     } catch (e) {
       console.error("Failed to open location:", e);
       addToast("Failed to open file location", "error");

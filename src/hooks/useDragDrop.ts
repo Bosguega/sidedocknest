@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { useDockStore } from "../stores/dockStore";
 import { useToastStore } from "../stores/toastStore";
 import { processFile } from "../utils/shortcutUtils";
+import { systemBridge } from "../bridge/system";
 
 type DragDropPayload = {
   paths: string[];
@@ -11,18 +11,17 @@ type DragDropPayload = {
 
 export function useDragDrop() {
   const { addStack, addItem } = useDockStore();
-  const addToast = useToastStore((s) => s.addToast);
+  const addToast = useToastStore((s: any) => s.addToast);
   const isSettingUp = useRef(false);
 
   useEffect(() => {
     if (isSettingUp.current) return;
     isSettingUp.current = true;
 
-    let unlistenPromise: Promise<() => void>;
+    let unlisten: (() => void) | null = null;
 
     const setup = async () => {
-      unlistenPromise = listen<DragDropPayload>(
-        "tauri://drag-drop",
+      unlisten = await systemBridge.onDragDrop<DragDropPayload>(
         async (event) => {
           const paths = event.payload.paths;
           if (!paths || paths.length === 0) return;
@@ -63,7 +62,7 @@ export function useDragDrop() {
     setup();
 
     return () => {
-      unlistenPromise?.then((fn) => fn());
+      if (unlisten) unlisten();
       isSettingUp.current = false;
     };
   }, [addStack, addItem, addToast]);

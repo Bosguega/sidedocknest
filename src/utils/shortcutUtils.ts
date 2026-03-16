@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bridge/commands";
 import type { DockItemType } from "../types/dock";
 
 /** Normaliza separadores de caminho para backslash (Windows). */
@@ -38,7 +38,7 @@ export async function processFile(rawPath: string): Promise<{
   // Resolve .lnk shortcuts
   if (path.toLowerCase().endsWith(".lnk")) {
     try {
-      const resolved = await invoke<string>("resolve_shortcut", { path });
+      const resolved = await commands.resolveShortcut(path) as string;
       path = resolved;
       itemType = getItemType(path);
     } catch (e) {
@@ -49,11 +49,11 @@ export async function processFile(rawPath: string): Promise<{
   // Extract icon
   let icon: string | undefined;
   try {
-    icon = await invoke<string>("extract_icon", { path: rawPath });
+    icon = await commands.extractIcon(rawPath) as string;
   } catch (e) {
     // If rawPath failed (maybe it's a link to a non-existent file), try resolved path
     try {
-      icon = await invoke<string>("extract_icon", { path });
+      icon = await commands.extractIcon(path) as string;
     } catch (e2) {
       console.warn("Could not extract icon for both paths:", e2);
     }
