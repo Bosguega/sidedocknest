@@ -18,6 +18,7 @@ import {
 import type { DockItem as DockItemType } from "../../types/dock";
 import { useDockStore } from "../../stores/dockStore";
 import { useToastStore } from "../../stores/toastStore";
+import { ContextMenu } from "../common/ContextMenu";
 
 type Props = {
   item: DockItemType;
@@ -33,15 +34,21 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   const reorderItems = useDockStore((s) => s.reorderItems);
   const addToast = useToastStore((s) => s.addToast);
 
-  const [showContext, setShowContext] = React.useState(false);
+  // contextPos holds the viewport coordinates of the triggering right-click.
+  // null means the menu is closed.
+  const [contextPos, setContextPos] = React.useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editName, setEditName] = React.useState(item.name);
+
   // Reset icon error state whenever the item's icon changes (e.g. after refreshIcons)
   const [iconLoadError, setIconLoadError] = React.useState(false);
   React.useEffect(() => {
     setIconLoadError(false);
   }, [item.icon]);
-  const contextRef = React.useRef<HTMLDivElement>(null);
+
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const {
@@ -83,12 +90,14 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowContext(true);
+    setContextPos({ x: e.clientX, y: e.clientY });
   };
+
+  const closeContext = () => setContextPos(null);
 
   const handleRenameTrigger = () => {
     setIsEditing(true);
-    setShowContext(false);
+    closeContext();
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -112,49 +121,34 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
   };
 
   const handleOpenLocation = async () => {
+    closeContext();
     try {
       await commands.openFileLocation(item.path);
     } catch (e) {
       console.error("Failed to open location:", e);
       addToast("Failed to open file location", "error");
     }
-    setShowContext(false);
   };
 
   const handleRemove = () => {
+    closeContext();
     onRemove(stackId, item.id);
     addToast(`"${item.name}" removed`, "warning");
-    setShowContext(false);
   };
 
   const handleMoveUp = () => {
+    closeContext();
     if (itemIndex > 0) {
       reorderItems(stackId, itemIndex, itemIndex - 1);
     }
-    setShowContext(false);
   };
 
   const handleMoveDown = () => {
+    closeContext();
     if (stack && itemIndex < stack.items.length - 1) {
       reorderItems(stackId, itemIndex, itemIndex + 1);
     }
-    setShowContext(false);
   };
-
-  // Close context menu on outside click
-  React.useEffect(() => {
-    if (!showContext) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        contextRef.current &&
-        !contextRef.current.contains(e.target as Node)
-      ) {
-        setShowContext(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showContext]);
 
   const getFallbackIcon = () => {
     switch (item.type) {
@@ -217,8 +211,8 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
         )}
       </div>
 
-      {showContext && (
-        <div className="context-menu" ref={contextRef}>
+      {contextPos && (
+        <ContextMenu x={contextPos.x} y={contextPos.y} onClose={closeContext}>
           <button className="context-menu-item" onClick={handleClick}>
             <ExternalLink size={13} />
             <span>Open</span>
@@ -260,7 +254,7 @@ export const DockItem: React.FC<Props> = ({ item, stackId, onRemove }) => {
             <Trash2 size={13} />
             <span>Remove from Dock</span>
           </button>
-        </div>
+        </ContextMenu>
       )}
     </div>
   );

@@ -8,6 +8,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { Modal } from "../common/Modal";
+import { ContextMenu } from "../common/ContextMenu";
 import {
   useSortable,
   SortableContext,
@@ -37,11 +38,15 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   const reorderStacks = useDockStore((s) => s.reorderStacks);
 
   const addToast = useToastStore((s) => s.addToast);
-  const [showContext, setShowContext] = React.useState(false);
+
+  // null = closed; {x,y} = open at viewport coordinates
+  const [contextPos, setContextPos] = React.useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editName, setEditName] = React.useState(stack.name);
-  const contextRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const {
@@ -74,12 +79,14 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowContext(true);
+    setContextPos({ x: e.clientX, y: e.clientY });
   };
+
+  const closeContext = () => setContextPos(null);
 
   const handleRenameTrigger = () => {
     setIsEditing(true);
-    setShowContext(false);
+    closeContext();
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -103,7 +110,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
   };
 
   const handleDeleteStack = () => {
-    setShowContext(false);
+    closeContext();
     setShowDeleteConfirm(true);
   };
 
@@ -117,30 +124,15 @@ export const Stack: React.FC<Props> = ({ stack }) => {
     if (stackIndex > 0) {
       reorderStacks(stackIndex, stackIndex - 1);
     }
-    setShowContext(false);
+    closeContext();
   };
 
   const handleMoveDown = () => {
     if (stackIndex < stackCount - 1) {
       reorderStacks(stackIndex, stackIndex + 1);
     }
-    setShowContext(false);
+    closeContext();
   };
-
-  // Close context menu on outside click
-  React.useEffect(() => {
-    if (!showContext) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        contextRef.current &&
-        !contextRef.current.contains(e.target as Node)
-      ) {
-        setShowContext(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showContext]);
 
   return (
     <div
@@ -203,8 +195,8 @@ export const Stack: React.FC<Props> = ({ stack }) => {
         </div>
       )}
 
-      {showContext && (
-        <div className="context-menu" ref={contextRef}>
+      {contextPos && (
+        <ContextMenu x={contextPos.x} y={contextPos.y} onClose={closeContext}>
           <button className="context-menu-item" onClick={handleRenameTrigger}>
             <Edit2 size={13} />
             <span>Rename Stack</span>
@@ -238,7 +230,7 @@ export const Stack: React.FC<Props> = ({ stack }) => {
             <Trash2 size={13} />
             <span>Delete Stack</span>
           </button>
-        </div>
+        </ContextMenu>
       )}
 
       <Modal

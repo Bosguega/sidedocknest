@@ -575,9 +575,6 @@ body,
    ============================================ */
 
 .context-menu {
-    position: absolute;
-    right: 8px; /* Stay within sidebar */
-    top: 10px;
     min-width: 160px;
     background: var(--bg-secondary);
     backdrop-filter: blur(20px);
