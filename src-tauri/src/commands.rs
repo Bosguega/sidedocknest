@@ -90,6 +90,10 @@ pub struct MonitorInfo {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    pub work_x: i32,
+    pub work_y: i32,
+    pub work_width: u32,
+    pub work_height: u32,
 }
 
 /// Returns the information of the monitor the window is currently on.
@@ -102,12 +106,17 @@ pub fn get_active_monitor_info(window: tauri::WebviewWindow) -> Result<MonitorIn
 
     let size = monitor.size();
     let pos = monitor.position();
+    let work_area = monitor.work_area(); // Rect { position, size }
     
     Ok(MonitorInfo {
         x: pos.x,
         y: pos.y,
         width: size.width,
         height: size.height,
+        work_x: work_area.position.x,
+        work_y: work_area.position.y,
+        work_width: work_area.size.width,
+        work_height: work_area.size.height,
     })
 }
 

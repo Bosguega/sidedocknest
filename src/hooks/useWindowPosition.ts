@@ -8,6 +8,10 @@ type MonitorInfo = {
   y: number;
   width: number;
   height: number;
+  work_x: number;
+  work_y: number;
+  work_width: number;
+  work_height: number;
 };
 
 export function useWindowPosition(isExpanded: boolean) {
@@ -34,15 +38,15 @@ export function useWindowPosition(isExpanded: boolean) {
         const scale = await window.scaleFactor();
         const targetPhysWidth = Math.round(targetLogicalWidth * scale);
         
-        // Set physical size (height matches monitor exactly)
-        await window.setSize(new PhysicalSize(targetPhysWidth, monitor.height));
+        // Set physical size (height matches monitor's work area exactly)
+        await window.setSize(new PhysicalSize(targetPhysWidth, monitor.work_height));
         
-        // Set physical position relative to monitor offset
+        // Set physical position relative to monitor offset within work area
         const xPos = side === "left" 
-          ? monitor.x 
-          : monitor.x + monitor.width - targetPhysWidth;
+          ? monitor.work_x 
+          : monitor.work_x + monitor.work_width - targetPhysWidth;
         
-        await window.setPosition(new PhysicalPosition(xPos, monitor.y));
+        await window.setPosition(new PhysicalPosition(xPos, monitor.work_y));
         
       } catch (e) {
         console.error("Failed to update window position:", e);
